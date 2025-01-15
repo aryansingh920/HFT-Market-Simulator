@@ -1,9 +1,22 @@
+"""
+Created on 15/01/2025
+
+@author: Aryan
+
+Filename: MarketSimulator.py
+
+Relative Path: server/utils/Market/MarketSimulator.py
+"""
+
 import random
 import time
 
 import numpy as np
 
-from server.utils.Market import DataLogger, HeatManager, Order, OrderBook
+from Market.HeatManager import HeatManager
+from Market.Order import Order
+from Market.OrderBook import OrderBook
+from Market.DataLogger import DataLogger
 
 
 class MarketSimulator:

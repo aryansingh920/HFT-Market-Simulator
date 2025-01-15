@@ -1,3 +1,13 @@
+"""
+Created on 15/01/2025
+
+@author: Aryan
+
+Filename: DataLogger.py
+
+Relative Path: server/utils/Market/DataLogger.py
+"""
+
 import csv
 import os
 import time

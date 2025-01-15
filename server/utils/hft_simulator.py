@@ -1,6 +1,14 @@
-from server.utils.Market import MarketSimulator
+"""
+Created on 15/01/2025
 
+@author: Aryan
 
+Filename: hft_simulator.py
+
+Relative Path: server/utils/hft_simulator.py
+"""
+
+from Market.MarketSimulator import MarketSimulator
 
 
 
