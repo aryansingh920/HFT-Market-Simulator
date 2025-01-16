@@ -10,6 +10,7 @@ Relative Path: server/utils/Market/MarketSimulator.py
 
 import random
 import time
+import math
 
 import numpy as np
 
@@ -25,15 +26,18 @@ class MarketSimulator:
         lambda_rate=10,
         initial_liquidity=10,
         symbols=None,
-        heat_duration_minutes=1
+        heat_duration_minutes=1,
+        mu=0.0,     # GBM drift
+        sigma=0.02  # GBM volatility
     ):
         """
         :param lambda_rate: Poisson rate for order arrivals
         :param initial_liquidity: Number of initial limit orders per symbol
         :param symbols: List of symbols to simulate
         :param heat_duration_minutes: Duration of each 'heat' in minutes
+        :param mu: Drift (GBM)
+        :param sigma: Volatility (GBM)
         """
-
         if symbols is None:
             symbols = ["AAPL", "GOOG"]
         self.symbols = symbols
@@ -45,8 +49,17 @@ class MarketSimulator:
         self.order_id_counter = 0
         self.initial_liquidity = initial_liquidity
 
+        # GBM parameters
+        self.mu = mu
+        self.sigma = sigma
+        # We will track a "current_price" for each symbol using GBM
+        self.current_price = {symbol: 100.0 for symbol in symbols}  # default
+
         # Create a DataLogger and HeatManager
-        self.data_logger = DataLogger(base_log_dir="simulation_logs")
+        self.data_logger = DataLogger(
+            base_log_dir="simulation_logs",
+            symbols=self.symbols
+        )
         self.heat_manager = HeatManager(
             heat_duration_minutes=heat_duration_minutes,
             data_logger=self.data_logger
@@ -55,30 +68,38 @@ class MarketSimulator:
     def initialize_order_books(self):
         """
         Create some random initial liquidity for each symbol.
+        Also, initialize current_price[symbol] around 100.
         """
         for symbol in self.symbols:
+            # Slight random offset for the "current" price
+            self.current_price[symbol] = 100.0 + random.uniform(-5, 5)
+
             for _ in range(self.initial_liquidity):
                 # Random bids
                 self.order_id_counter += 1
-                bid_price = random.uniform(95, 99)
+                bid_price = self.current_price[symbol] - random.uniform(1, 5)
+                bid_price = max(1, bid_price)
                 bid_size = random.randint(1, 10)
                 bid_order = Order(
-                    self.order_id_counter, symbol, "Market Maker", "limit", "buy", bid_size, bid_price
+                    self.order_id_counter, symbol, "Market Maker",
+                    "limit", "buy", bid_size, bid_price
                 )
                 self.order_books[symbol].add_limit_order(bid_order)
 
                 # Random asks
                 self.order_id_counter += 1
-                ask_price = random.uniform(101, 105)
+                ask_price = self.current_price[symbol] + random.uniform(1, 5)
                 ask_size = random.randint(1, 10)
                 ask_order = Order(
-                    self.order_id_counter, symbol, "Market Maker", "limit", "sell", ask_size, ask_price
+                    self.order_id_counter, symbol, "Market Maker",
+                    "limit", "sell", ask_size, ask_price
                 )
                 self.order_books[symbol].add_limit_order(ask_order)
 
     def generate_order(self):
         """
         Generate a random order (market/limit, buy/sell) for a random symbol.
+        The limit price is based on a reference mid-price = self.current_price[symbol].
         """
         symbol = random.choice(self.symbols)
         order_type = "market" if random.random() < 0.5 else "limit"
@@ -88,9 +109,11 @@ class MarketSimulator:
 
         price = None
         if order_type == "limit":
-            mid_price = self.order_books[symbol].get_mid_price() or 100
-            delta = random.uniform(-5, 5)
-            price = mid_price + delta
+            # Use current_price[symbol] as reference mid
+            mid_price = self.current_price[symbol]
+            # Price range within ±5% of mid
+            delta = mid_price * 0.05
+            price = mid_price + random.uniform(-delta, delta)
             price = max(1, price)  # ensure price > 0
 
         self.order_id_counter += 1
@@ -105,15 +128,16 @@ class MarketSimulator:
         )
         return order
 
-    def simulate_price_movement(self, symbol):
+    def simulate_price_movement(self, symbol, dt=1.0):
         """
-        Dummy price movement simulation around the mid price.
+        Uses Geometric Brownian Motion (GBM) to update self.current_price[symbol].
+        S(t+dt) = S(t)*exp((mu-0.5*sigma^2)*dt + sigma*sqrt(dt)*Z).
         """
-        mid_price = self.order_books[symbol].get_mid_price()
-        if mid_price:
-            noise = np.random.normal(0, 0.5)
-            return mid_price + noise
-        return None
+        S_t = self.current_price[symbol]
+        drift = (self.mu - 0.5 * self.sigma**2) * dt
+        diffusion = self.sigma * np.sqrt(dt) * np.random.normal()
+        S_tplus = S_t * math.exp(drift + diffusion)
+        self.current_price[symbol] = max(0.01, S_tplus)  # avoid zero price
 
     def run(self, steps=50):
         """
@@ -135,33 +159,40 @@ class MarketSimulator:
 
             # Generate a new order
             new_order = self.generate_order()
+            # Log the order
+            self.data_logger.log_order(new_order)
+
             print(f"Step={step+1}, New order: {new_order}")
 
             # Process the new order
             order_book = self.order_books[new_order.symbol]
             if new_order.order_type == "market":
                 order_book.add_market_order(
-                    new_order, data_logger=self.data_logger)
+                    new_order, data_logger=self.data_logger
+                )
             else:
                 order_book.add_limit_order(new_order)
                 order_book.match_limit_orders(data_logger=self.data_logger)
 
-            # Simulate (dummy) price movement for this symbol
-            new_price = self.simulate_price_movement(new_order.symbol)
-            if new_price:
-                print(f"{new_order.symbol} price ~ {new_price:.2f}")
+            # Simulate GBM price movement for **all** symbols
+            for sym in self.symbols:
+                self.simulate_price_movement(sym)
 
-            # Log a snapshot of the market state
-            best_bid = order_book.get_best_bid()
-            best_ask = order_book.get_best_ask()
-            mid_price = order_book.get_mid_price()
-            self.data_logger.log_snapshot(
-                step=step+1,
-                symbol=new_order.symbol,
-                best_bid=best_bid,
-                best_ask=best_ask,
-                mid_price=mid_price
-            )
+            # Log snapshots for **all** symbols to ensure continuous time series
+            for sym in self.symbols:
+                ob = self.order_books[sym]
+                best_bid = ob.get_best_bid()
+                best_ask = ob.get_best_ask()
+                mid_price = ob.get_mid_price()
+                # Or use the updated GBM price as "mid_price" if desired.
+                # We'll keep the order book mid as is for consistent comparison.
+                self.data_logger.log_snapshot(
+                    step=step + 1,
+                    symbol=sym,
+                    best_bid=best_bid,
+                    best_ask=best_ask,
+                    mid_price=mid_price
+                )
 
         # End the last heat after finishing steps
         self.data_logger.end_heat()

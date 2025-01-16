@@ -8,6 +8,7 @@ Filename: Order.py
 Relative Path: server/utils/Market/Order.py
 """
 
+
 class Order:
     def __init__(self, order_id, symbol, trader_type, order_type, side, size, price=None):
         """

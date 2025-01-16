@@ -1,3 +1,5 @@
 
 .venv
 server/utils/Market/__pycache__
+
+server/utils/simulation_logs
