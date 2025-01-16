@@ -9,7 +9,7 @@ Relative Path: server/utils/hft_simulator.py
 """
 
 from Market.MarketSimulator import MarketSimulator
-from Market.Graph import plot_symbol_candlestick
+from Market.Graph import create_dash_app, plot_symbol_candlestick
 
 if __name__ == "__main__":
     # simulator = MarketSimulator(
@@ -22,7 +22,13 @@ if __name__ == "__main__":
     # )
     # simulator.run(steps=1000)
 
+    symbol_csv_file = "./simulation_logs/heat_1/symbol_AAPL.csv"
+    frequency = '1ms'  # or '1S', '100ms', etc.
     plot_symbol_candlestick(
-        symbol_csv_path="./simulation_logs/heat_2/symbol_AAPL.csv", freq='1ms')
+        symbol_csv_path=symbol_csv_file, freq='1ms')
+
+    dash_app = create_dash_app(symbol_csv_file, freq=frequency)
+    dash_app.run_server(debug=True, port=8051)
+
 
     # Check your "simulation_logs" directory for the new CSV files.

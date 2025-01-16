@@ -3,3 +3,5 @@ uvicorn
 numpy
 mplfinance
 pandas
+dash
+plotly
