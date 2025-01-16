@@ -139,61 +139,77 @@ class MarketSimulator:
         S_tplus = S_t * math.exp(drift + diffusion)
         self.current_price[symbol] = max(0.01, S_tplus)  # avoid zero price
 
+
     def run(self, steps=50):
         """
-        Run the simulation for a given number of steps.
+        Run the simulation for a given number of steps, forcing the entire
+        run to complete within the heat_duration_minutes for exactly one heat.
         """
+
         print("Initializing order books with liquidity...")
         self.initialize_order_books()
 
-        # Start the first heat explicitly
+        # Start the first (and only) heat explicitly
         self.heat_manager.start_heat()
 
+        # Total real time (in seconds) that this simulation should last
+        total_sim_time = self.heat_manager.heat_duration_seconds  # minutes * 60
+        # Time per step (seconds)
+        time_per_step = total_sim_time / steps
+
         for step in range(steps):
-            # Random delay ~ Exp(1/lambda_rate)
-            delay = np.random.exponential(1 / self.lambda_rate)
-            time.sleep(delay)
+            step_start_time = time.time()
 
-            # Check if we need to rotate into a new heat
-            self.heat_manager.check_and_rotate_heat()
-
-            # Generate a new order
+            # --------------------------------------------------
+            # 1) Generate a new order (no random sleep here!)
+            # --------------------------------------------------
             new_order = self.generate_order()
-            # Log the order
             self.data_logger.log_order(new_order)
-
             print(f"Step={step+1}, New order: {new_order}")
 
-            # Process the new order
+            # --------------------------------------------------
+            # 2) Process the new order
+            # --------------------------------------------------
             order_book = self.order_books[new_order.symbol]
             if new_order.order_type == "market":
                 order_book.add_market_order(
-                    new_order, data_logger=self.data_logger
-                )
+                    new_order, data_logger=self.data_logger)
             else:
                 order_book.add_limit_order(new_order)
                 order_book.match_limit_orders(data_logger=self.data_logger)
 
-            # Simulate GBM price movement for **all** symbols
+            # --------------------------------------------------
+            # 3) Simulate price movement for ALL symbols
+            #    (using GBM, or any logic you want)
+            # --------------------------------------------------
             for sym in self.symbols:
-                self.simulate_price_movement(sym)
+                self.simulate_price_movement(
+                    sym, dt=1.0)  # or pass your dt logic
 
-            # Log snapshots for **all** symbols to ensure continuous time series
+            # --------------------------------------------------
+            # 4) Log snapshots for ALL symbols
+            # --------------------------------------------------
             for sym in self.symbols:
                 ob = self.order_books[sym]
                 best_bid = ob.get_best_bid()
                 best_ask = ob.get_best_ask()
                 mid_price = ob.get_mid_price()
-                # Or use the updated GBM price as "mid_price" if desired.
-                # We'll keep the order book mid as is for consistent comparison.
                 self.data_logger.log_snapshot(
-                    step=step + 1,
+                    step=step+1,
                     symbol=sym,
                     best_bid=best_bid,
                     best_ask=best_ask,
                     mid_price=mid_price
                 )
 
-        # End the last heat after finishing steps
+            # --------------------------------------------------
+            # 5) Sleep the remainder of time_per_step if needed
+            # --------------------------------------------------
+            elapsed = time.time() - step_start_time
+            remainder = time_per_step - elapsed
+            if remainder > 0:
+                time.sleep(remainder)
+
+        # End the heat after finishing all steps
         self.data_logger.end_heat()
         print("Simulation complete.")

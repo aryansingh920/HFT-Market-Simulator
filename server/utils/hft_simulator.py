@@ -22,7 +22,7 @@ if __name__ == "__main__":
     # )
     # simulator.run(steps=1000)
 
-    symbol_csv_file = "./simulation_logs/heat_1/symbol_AAPL.csv"
+    symbol_csv_file = "./simulation_logs/heat_1/symbol_GOOG.csv"
     frequency = '1ms'  # or '1S', '100ms', etc.
     plot_symbol_candlestick(
         symbol_csv_path=symbol_csv_file, freq='1ms')
