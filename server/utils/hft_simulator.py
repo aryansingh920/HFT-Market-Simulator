@@ -12,23 +12,30 @@ from Market.MarketSimulator import MarketSimulator
 from Market.Graph import create_dash_app, plot_symbol_candlestick
 
 if __name__ == "__main__":
-    # simulator = MarketSimulator(
-    #     lambda_rate=5,            # Higher means more frequent orders
-    #     initial_liquidity=10,      # Some initial orders
-    #     symbols=["AAPL", "GOOG"],  # or ["AAPL", "GOOG", "AMZN"]
-    #     heat_duration_minutes=1,  # 10-minute heat
-    #     mu=0.0,                   # GBM drift
-    #     sigma=0.02                # GBM volatility
-    # )
+    simulation_config = {
+        "name": "MyHFTSimulation",
+        "lambda_rate": 10,
+        "initial_liquidity": 5,
+        "symbols": ["AAPL", "GOOG"],
+        "heat_duration_minutes": 0.5,
+        "mu": 0.0,
+        "sigma": 0.05,
+        "initial_stock_prices": {
+                "AAPL": 120.0,
+                "GOOG": 1500.0
+        }
+    }
+    # simulator.run(steps=1000)
+    simulator = MarketSimulator(config=simulation_config)
     # simulator.run(steps=1000)
 
     symbol_csv_file = "./simulation_logs/heat_1/symbol_GOOG.csv"
     frequency = '1ms'  # or '1S', '100ms', etc.
     plot_symbol_candlestick(
-        symbol_csv_path=symbol_csv_file, freq='1ms')
+        symbol_csv_path=symbol_csv_file, freq=frequency)
 
-    dash_app = create_dash_app(symbol_csv_file, freq=frequency)
-    dash_app.run_server(debug=True, port=8051)
+    # dash_app = create_dash_app(symbol_csv_file, freq=frequency)
+    # dash_app.run_server(debug=True, port=8051)
 
 
     # Check your "simulation_logs" directory for the new CSV files.
