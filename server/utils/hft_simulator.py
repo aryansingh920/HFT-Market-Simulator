@@ -17,12 +17,12 @@ if __name__ == "__main__":
     simulator = MarketSimulator(config=simulation_config)
 
     # 3) Run the simulation for a certain number of steps
-    simulator.run(steps=10000)
+    simulator.run(steps=100000)
 
     # 4) Afterwards, pick a symbol CSV and visualize the candlesticks
     #    For example, assume we pick "GOOG" from the logs of heat_1:
     symbol_csv_file = "./simulation_logs/heat_1/symbol_GOOG.csv"
-    frequency = '1ms'  # or '1S', '100ms', etc.
+    frequency = '1S'  # or '1S', '100ms', etc.
 
     plot_symbol_candlestick(symbol_csv_path=symbol_csv_file, freq=frequency)
 

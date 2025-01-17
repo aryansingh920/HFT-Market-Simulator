@@ -6,6 +6,7 @@ An updated MarketSimulator that:
     (lambda_rate, mu, sigma, etc.).
   - Retains the data logging logic for orders, trades, and snapshots.
   - Uses a HeatManager to manage session-based logging.
+  - Uses an Ornstein–Uhlenbeck process for more realistic price dynamics.
 """
 
 import random
@@ -23,34 +24,6 @@ class MarketSimulator:
     """
     A market simulation environment that can handle symbol-specific parameters
     and retains complete logging of orders, trades, and snapshots.
-
-    Example of expected config structure:
-    {
-        "name": "MyHFTSimulation",
-
-        "symbols_config": {
-            "AAPL": {
-                "initial_price": 120.0,
-                "lambda_rate": 25,
-                "initial_liquidity": 10,
-                "mu": 0.01,
-                "sigma": 0.05,
-                "heat_duration_minutes": 0.5
-            },
-            "GOOG": {
-                "initial_price": 1500.0,
-                "lambda_rate": 50,
-                "initial_liquidity": 20,
-                "mu": 0.01,
-                "sigma": 0.05,
-                "heat_duration_minutes": 0.5
-            }
-            ...
-        },
-
-        # Optionally, a global override for heat duration, or fallback:
-        "global_heat_duration": 0.5
-    }
     """
 
     def __init__(self, config):
@@ -60,10 +33,9 @@ class MarketSimulator:
         self.name = config.get("name", "DefaultSimulation")
 
         # "symbols_config" is a dictionary of per-symbol parameters.
-        # e.g.: config["symbols_config"]["AAPL"]["lambda_rate"] = 25
         self.symbols_config = config.get("symbols_config", {})
 
-        # If you want a single global heat duration, we can default to that here:
+        # Default global heat duration if not provided
         self.heat_duration = config.get("global_heat_duration", 1.0)
 
         # Prepare a list of symbols from the keys of symbols_config
@@ -173,52 +145,39 @@ class MarketSimulator:
 
     def simulate_price_movement(self, symbol, dt=1.0):
         """
-        Example price movement using a basic GBM with optional random shock.
-
-        We retrieve mu, sigma from the symbol's config:
-           mu = symbol_config["mu"]
-           sigma = symbol_config["sigma"]
+        Simulate price movement using an Ornstein–Uhlenbeck (OU) process for mean reversion.
         """
         sym_conf = self.symbols_config[symbol]
-        mu_gbm = sym_conf.get("mu", 0.0)
-        sigma_gbm = sym_conf.get("sigma", 0.02)
+
+        # Determine the long-run mean price; defaulting to initial price if not specified
+        theta = sym_conf.get("long_run_mean", sym_conf["initial_price"])
+        # Speed of mean reversion (how quickly price reverts to theta)
+        kappa = sym_conf.get("kappa", 0.2)
+        # Volatility parameter
+        sigma = sym_conf.get("sigma", 0.05)
 
         S_t = self.current_price[symbol]
 
-        # Geometric Brownian Motion drift/diffusion
-        drift_gbm = (mu_gbm - 0.5 * sigma_gbm**2) * dt
-        diffusion_gbm = sigma_gbm * math.sqrt(dt) * np.random.normal()
-        S_tplus = S_t * math.exp(drift_gbm + diffusion_gbm)
+        # OU process update:
+        dS = kappa * (theta - S_t) * dt
+        dW = sigma * math.sqrt(dt) * np.random.normal()
+        S_next = S_t + dS + dW
 
-        # Optional shock event (1% chance)
-        if random.random() < 0.01:
-            shock = np.random.choice([-1, 1]) * random.uniform(0.05, 0.1)
-            S_tplus *= (1 + shock)
-            print(f"[{symbol}] News shock applied: {shock:.2%}")
+        # Ensure the price doesn't drop below a minimal threshold (e.g. 1.0)
+        S_next = max(1.0, S_next)
 
-        # Ensure price doesn't drop below a minimum
-        self.current_price[symbol] = max(1.0, S_tplus)
+        self.current_price[symbol] = S_next
 
-        # Optional debug:
-        # print(f"[DEBUG] {symbol}: old={S_t:.2f}, new={self.current_price[symbol]:.2f}")
 
     def run(self, steps=50):
         """
         Run the simulation for the specified number of steps,
         filling one "heat" managed by HeatManager.
-
-        Each step:
-          - For each symbol, generate a Poisson(lambda_rate) # of orders
-          - Process those orders (market or limit)
-          - Update the price
-          - Log snapshots
         """
         print(f"Starting simulation '{self.name}'...")
         self.heat_manager.start_heat()
 
-        # total real-time duration for the heat
         total_sim_time = self.heat_manager.heat_duration_seconds
-        # time allocated per step in real seconds
         time_per_step = total_sim_time / steps if steps else 0.0
 
         for step in range(steps):
@@ -227,16 +186,15 @@ class MarketSimulator:
             # For each symbol, generate and process orders
             for sym, sym_conf in self.symbols_config.items():
                 lam_rate = sym_conf.get("lambda_rate", 10.0)
-                # number of new orders ~ Poisson(lam_rate)
                 num_orders = np.random.poisson(lam_rate)
 
                 for _ in range(num_orders):
                     new_order = self.generate_random_order(sym)
 
-                    # 1) Log the order
+                    # Log the order
                     self.data_logger.log_order(new_order)
 
-                    # 2) Process the order in the OrderBook
+                    # Process the order and log order book state after each order
                     ob = self.order_books[sym]
                     if new_order.order_type == "market":
                         ob.add_market_order(
@@ -245,11 +203,19 @@ class MarketSimulator:
                         ob.add_limit_order(new_order)
                         ob.match_limit_orders(data_logger=self.data_logger)
 
-            # After processing orders, we update the price for each symbol
+                    # Log the updated order book state after processing the order
+                    self.data_logger.log_order_book(
+                        symbol=sym,
+                        bids=ob.bids,
+                        asks=ob.asks,
+                        order_id=new_order.order_id
+                    )
+
+            # Update price after processing orders for all symbols
             for sym in self.symbols:
                 self.simulate_price_movement(sym, dt=1.0)
 
-            # Now log a snapshot for each symbol
+            # Log snapshots for each symbol
             for sym in self.symbols:
                 ob = self.order_books[sym]
                 best_bid = ob.get_best_bid()
@@ -263,12 +229,10 @@ class MarketSimulator:
                     mid_price=mid_price
                 )
 
-            # (Optional) Sleep so the total run time matches the heat duration
             elapsed = time.time() - step_start_time
             remainder = time_per_step - elapsed
             if remainder > 0:
                 time.sleep(remainder)
 
-        # End the heat after finishing all steps
         self.data_logger.end_heat()
         print(f"Simulation '{self.name}' complete.")

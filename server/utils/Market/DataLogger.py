@@ -9,6 +9,7 @@ Relative Path: server/utils/Market/DataLogger.py
 """
 
 import csv
+import json
 import os
 import time
 
@@ -68,6 +69,21 @@ class DataLogger:
         self.order_events.append(record)
         # Also store in symbol-specific log (for reference)
         self.symbol_events[order.symbol].append(record)
+
+    def log_order_book(self, symbol, bids, asks, order_id):
+        """
+        Log the state of the order book for a given symbol right after processing an order.
+        """
+        record = {
+            "timestamp": time.time(),
+            "event_type": "ORDER_BOOK",
+            "symbol": symbol,
+            "order_id": order_id,
+            # Serialize bids and asks as JSON strings for readability in CSV
+            "bids": json.dumps(bids),
+            "asks": json.dumps(asks)
+        }
+        # Append the order book log to in-memory sym
 
     def log_trade(self, symbol, trade_type, trade_size, trade_price):
         """
@@ -184,3 +200,4 @@ class DataLogger:
             writer.writeheader()
             for row in rows:
                 writer.writerow(row)
+
