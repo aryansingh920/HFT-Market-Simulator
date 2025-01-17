@@ -1,11 +1,11 @@
 """
-Created on 15/01/2025
+MarketSimulator.py
 
-@author: Aryan
-
-Filename: MarketSimulator.py
-
-Relative Path: server/utils/Market/MarketSimulator.py
+An updated MarketSimulator that:
+  - Accepts a "symbols_config" dictionary with per-symbol parameters
+    (lambda_rate, mu, sigma, etc.).
+  - Retains the data logging logic for orders, trades, and snapshots.
+  - Uses a HeatManager to manage session-based logging.
 """
 
 import random
@@ -21,110 +21,132 @@ from Market.DataLogger import DataLogger
 
 class MarketSimulator:
     """
-    A market simulation environment that generates and processes orders,
-    tracks price movements via GBM, and logs data via DataLogger.
+    A market simulation environment that can handle symbol-specific parameters
+    and retains complete logging of orders, trades, and snapshots.
+
+    Example of expected config structure:
+    {
+        "name": "MyHFTSimulation",
+
+        "symbols_config": {
+            "AAPL": {
+                "initial_price": 120.0,
+                "lambda_rate": 25,
+                "initial_liquidity": 10,
+                "mu": 0.01,
+                "sigma": 0.05,
+                "heat_duration_minutes": 0.5
+            },
+            "GOOG": {
+                "initial_price": 1500.0,
+                "lambda_rate": 50,
+                "initial_liquidity": 20,
+                "mu": 0.01,
+                "sigma": 0.05,
+                "heat_duration_minutes": 0.5
+            }
+            ...
+        },
+
+        # Optionally, a global override for heat duration, or fallback:
+        "global_heat_duration": 0.5
+    }
     """
 
     def __init__(self, config):
         """
-        Initialize the simulator with a configuration dictionary.
-
-        The `config` dictionary can include the following keys:
-            - name (str): A label for the simulation, e.g., "MyHFTSimulation".
-            - lambda_rate (float): Poisson rate for order arrivals.
-            - initial_liquidity (int): Number of initial limit orders per symbol.
-            - symbols (list of str): List of stock symbols to simulate.
-            - heat_duration_minutes (float): Duration (in minutes) for each heat.
-            - mu (float): Drift for the Geometric Brownian Motion (GBM).
-            - sigma (float): Volatility for the GBM.
-            - initial_stock_prices (dict): Initial prices per symbol, e.g.,
-                  { "AAPL": 120.0, "GOOG": 1500.0 }
-                If not provided for a symbol, defaults to 100.0.
+        Initialize the simulator with a configuration dict.
         """
-
-        # Pull parameters from config with sensible defaults
         self.name = config.get("name", "DefaultSimulation")
-        self.lambda_rate = config.get("lambda_rate", 10)
-        self.initial_liquidity = config.get("initial_liquidity", 10)
-        self.symbols = config.get("symbols", ["AAPL", "GOOG"])
-        self.heat_duration_minutes = config.get("heat_duration_minutes", 1.0)
-        self.mu = config.get("mu", 0.0)       # GBM drift
-        self.sigma = config.get("sigma", 0.02)  # GBM volatility
 
-        # Create an OrderBook for each symbol
-        self.order_books = {symbol: OrderBook(
-            symbol) for symbol in self.symbols}
+        # "symbols_config" is a dictionary of per-symbol parameters.
+        # e.g.: config["symbols_config"]["AAPL"]["lambda_rate"] = 25
+        self.symbols_config = config.get("symbols_config", {})
 
-        # Initialize current prices from config or default to 100.0
-        initial_prices = config.get("initial_stock_prices", {})
-        self.current_price = {
-            sym: initial_prices.get(sym, 100.0) for sym in self.symbols
-        }
+        # If you want a single global heat duration, we can default to that here:
+        self.heat_duration = config.get("global_heat_duration", 1.0)
 
-        # Order ID counter
-        self.order_id_counter = 0
+        # Prepare a list of symbols from the keys of symbols_config
+        self.symbols = list(self.symbols_config.keys())
 
-        # Create a DataLogger
+        # Data logger to track all events for these symbols
         self.data_logger = DataLogger(
             base_log_dir="simulation_logs",
             symbols=self.symbols
         )
 
-        # Create a HeatManager
+        # HeatManager to handle rotating logs each "heat"
         self.heat_manager = HeatManager(
-            heat_duration_minutes=self.heat_duration_minutes,
+            heat_duration_minutes=self.heat_duration,
             data_logger=self.data_logger
         )
 
+        # Create an OrderBook for each symbol
+        self.order_books = {}
+        self.current_price = {}
+        self.order_id_counter = 0
+
+        for sym, sym_conf in self.symbols_config.items():
+            self.order_books[sym] = OrderBook(sym)
+            self.current_price[sym] = sym_conf.get("initial_price", 100.0)
+
+        # After setting up, pre-seed each order book with some initial liquidity
+        self.initialize_order_books()
+
     def initialize_order_books(self):
         """
-        Create some random initial liquidity for each symbol.
-        The reference price for each symbol is self.current_price[symbol].
+        Seed initial limit orders in each symbol's order book.
+        The number of such orders = symbol-specific 'initial_liquidity'.
         """
-        for symbol in self.symbols:
-            # For variety, allow a small random offset from the initial price
-            self.current_price[symbol] = self.current_price[symbol] + \
-                random.uniform(-5, 5)
+        for sym, sym_conf in self.symbols_config.items():
+            liquidity_count = sym_conf.get("initial_liquidity", 5)
+            price = self.current_price[sym]
 
-            for _ in range(self.initial_liquidity):
-                # Random BUY limit orders
+            # Optionally nudge the start price a bit for variety
+            self.current_price[sym] = price + random.uniform(-5, 5)
+
+            for _ in range(liquidity_count):
+                # BUY side
                 self.order_id_counter += 1
                 bid_price = max(
-                    1.0, self.current_price[symbol] - random.uniform(1, 5))
+                    1.0,
+                    self.current_price[sym] - random.uniform(1, 5)
+                )
                 bid_size = random.randint(1, 10)
                 bid_order = Order(
                     order_id=self.order_id_counter,
-                    symbol=symbol,
+                    symbol=sym,
                     trader_type="Market Maker",
                     order_type="limit",
                     side="buy",
                     size=bid_size,
                     price=bid_price
                 )
-                self.order_books[symbol].add_limit_order(bid_order)
+                self.order_books[sym].add_limit_order(bid_order)
 
-                # Random SELL limit orders
+                # SELL side
                 self.order_id_counter += 1
-                ask_price = self.current_price[symbol] + random.uniform(1, 5)
+                ask_price = self.current_price[sym] + random.uniform(1, 5)
                 ask_size = random.randint(1, 10)
                 ask_order = Order(
                     order_id=self.order_id_counter,
-                    symbol=symbol,
+                    symbol=sym,
                     trader_type="Market Maker",
                     order_type="limit",
                     side="sell",
                     size=ask_size,
                     price=ask_price
                 )
-                self.order_books[symbol].add_limit_order(ask_order)
+                self.order_books[sym].add_limit_order(ask_order)
 
-    def generate_random_order(self):
+    def generate_random_order(self, symbol):
         """
-        Generate a random order (market or limit) for a random symbol.
-        Price (for limit) is within ±5% of the current price.
+        Generate a random order (market or limit) for the given symbol,
+        referencing the current_price for establishing a limit price.
         """
-        symbol = random.choice(self.symbols)
+        # 50% chance market, 50% chance limit
         order_type = "market" if random.random() < 0.5 else "limit"
+        # 80% chance "Trader", 20% chance "Market Maker"
         trader_type = "Trader" if random.random() < 0.8 else "Market Maker"
         side = "buy" if random.random() < 0.5 else "sell"
         size = random.randint(1, 10)
@@ -132,7 +154,8 @@ class MarketSimulator:
         price = None
         if order_type == "limit":
             mid_price = self.current_price[symbol]
-            delta = mid_price * 0.05  # ±5%
+            # ±5% around current price
+            delta = mid_price * 0.05
             price = mid_price + random.uniform(-delta, delta)
             price = max(1.0, price)
 
@@ -150,59 +173,83 @@ class MarketSimulator:
 
     def simulate_price_movement(self, symbol, dt=1.0):
         """
-        Update self.current_price[symbol] using Geometric Brownian Motion (GBM).
-        S(t+dt) = S(t) * exp((mu - 0.5*sigma^2)*dt + sigma*sqrt(dt)*Z).
+        Example price movement using a basic GBM with optional random shock.
+
+        We retrieve mu, sigma from the symbol's config:
+           mu = symbol_config["mu"]
+           sigma = symbol_config["sigma"]
         """
+        sym_conf = self.symbols_config[symbol]
+        mu_gbm = sym_conf.get("mu", 0.0)
+        sigma_gbm = sym_conf.get("sigma", 0.02)
+
         S_t = self.current_price[symbol]
-        drift = (self.mu - 0.5 * (self.sigma ** 2)) * dt
-        diffusion = self.sigma * math.sqrt(dt) * np.random.normal()
-        S_tplus = S_t * math.exp(drift + diffusion)
-        # Ensure price doesn't go below 0.01
-        self.current_price[symbol] = max(0.01, S_tplus)
+
+        # Geometric Brownian Motion drift/diffusion
+        drift_gbm = (mu_gbm - 0.5 * sigma_gbm**2) * dt
+        diffusion_gbm = sigma_gbm * math.sqrt(dt) * np.random.normal()
+        S_tplus = S_t * math.exp(drift_gbm + diffusion_gbm)
+
+        # Optional shock event (1% chance)
+        if random.random() < 0.01:
+            shock = np.random.choice([-1, 1]) * random.uniform(0.05, 0.1)
+            S_tplus *= (1 + shock)
+            print(f"[{symbol}] News shock applied: {shock:.2%}")
+
+        # Ensure price doesn't drop below a minimum
+        self.current_price[symbol] = max(1.0, S_tplus)
+
+        # Optional debug:
+        # print(f"[DEBUG] {symbol}: old={S_t:.2f}, new={self.current_price[symbol]:.2f}")
 
     def run(self, steps=50):
         """
-        Run the simulation for a given number of steps.
-        By default, we tie it to exactly one "heat" duration.
+        Run the simulation for the specified number of steps,
+        filling one "heat" managed by HeatManager.
 
-        If you want the simulation to be purely step-based (fast as possible),
-        remove or adjust the time.sleep logic below.
+        Each step:
+          - For each symbol, generate a Poisson(lambda_rate) # of orders
+          - Process those orders (market or limit)
+          - Update the price
+          - Log snapshots
         """
-
         print(f"Starting simulation '{self.name}'...")
-        print("Initializing order books with liquidity...")
-        self.initialize_order_books()
-
-        # Start the first (and only) heat
         self.heat_manager.start_heat()
 
-        # Total real time for one heat (in seconds)
+        # total real-time duration for the heat
         total_sim_time = self.heat_manager.heat_duration_seconds
-        # Time per step (seconds), so steps fill the heat duration
-        time_per_step = total_sim_time / steps
+        # time allocated per step in real seconds
+        time_per_step = total_sim_time / steps if steps else 0.0
 
         for step in range(steps):
             step_start_time = time.time()
 
-            # 1) Generate a random order
-            new_order = self.generate_random_order()
-            self.data_logger.log_order(new_order)
-            print(f"Step {step + 1}: New order: {new_order}")
+            # For each symbol, generate and process orders
+            for sym, sym_conf in self.symbols_config.items():
+                lam_rate = sym_conf.get("lambda_rate", 10.0)
+                # number of new orders ~ Poisson(lam_rate)
+                num_orders = np.random.poisson(lam_rate)
 
-            # 2) Process the new order
-            order_book = self.order_books[new_order.symbol]
-            if new_order.order_type == "market":
-                order_book.add_market_order(
-                    new_order, data_logger=self.data_logger)
-            else:
-                order_book.add_limit_order(new_order)
-                order_book.match_limit_orders(data_logger=self.data_logger)
+                for _ in range(num_orders):
+                    new_order = self.generate_random_order(sym)
 
-            # 3) Simulate price movement for each symbol
+                    # 1) Log the order
+                    self.data_logger.log_order(new_order)
+
+                    # 2) Process the order in the OrderBook
+                    ob = self.order_books[sym]
+                    if new_order.order_type == "market":
+                        ob.add_market_order(
+                            new_order, data_logger=self.data_logger)
+                    else:
+                        ob.add_limit_order(new_order)
+                        ob.match_limit_orders(data_logger=self.data_logger)
+
+            # After processing orders, we update the price for each symbol
             for sym in self.symbols:
                 self.simulate_price_movement(sym, dt=1.0)
 
-            # 4) Log snapshots for each symbol
+            # Now log a snapshot for each symbol
             for sym in self.symbols:
                 ob = self.order_books[sym]
                 best_bid = ob.get_best_bid()
@@ -216,7 +263,7 @@ class MarketSimulator:
                     mid_price=mid_price
                 )
 
-            # 5) (Optional) Sleep so that total steps fill the heat duration in real time
+            # (Optional) Sleep so the total run time matches the heat duration
             elapsed = time.time() - step_start_time
             remainder = time_per_step - elapsed
             if remainder > 0:
