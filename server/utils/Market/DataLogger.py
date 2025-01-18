@@ -69,6 +69,7 @@ class DataLogger:
         self.symbol_events[order.symbol].append(record)
 
         # NEW: broadcast the order event in real-time
+        print(f"[DataLogger] Logging order: {record}")
         broadcast_event("new_order", record)
 
     def log_order_book(self, symbol, bids, asks, order_id):
