@@ -1,7 +1,8 @@
 """
 hft_simulator.py
 
-Main script to run a dynamic HFT simulation.
+Main script to run a dynamic HFT simulation, now updated to broadcast
+real-time events (orders, trades, snapshots, etc.) via Socket.IO.
 """
 
 from Market.MarketSimulator import MarketSimulator
@@ -17,16 +18,16 @@ if __name__ == "__main__":
     simulator = MarketSimulator(config=simulation_config)
 
     # 3) Run the simulation for a certain number of steps
-    simulator.run(steps=100000)
+    #    As it runs, the DataLogger inside will broadcast all events via Socket.IO
+    simulator.run(steps=1000)
 
-    # 4) Afterwards, pick a symbol CSV and visualize the candlesticks
-    #    For example, assume we pick "GOOG" from the logs of heat_1:
+    # 4) After the simulation finishes, we can pick a symbol CSV and visualize candlesticks
     symbol_csv_file = "./simulation_logs/heat_1/symbol_GOOG.csv"
-    frequency = '1S'  # or '1S', '100ms', etc.
+    frequency = '1S'  # Frequency for resampling candlesticks
 
     plot_symbol_candlestick(symbol_csv_path=symbol_csv_file, freq=frequency)
 
-    # If you want a Dash app:
+    # If you want a Dash app to display a live-updating graph (independent from the simulator):
     # from Market.Graph import create_dash_app
     # dash_app = create_dash_app(symbol_csv_file, freq=frequency)
     # dash_app.run_server(debug=True, port=8051)

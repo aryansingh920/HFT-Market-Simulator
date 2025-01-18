@@ -1,11 +1,5 @@
 """
-Created on 15/01/2025
-
-@author: Aryan
-
-Filename: OrderBook.py
-
-Relative Path: server/utils/Market/OrderBook.py
+OrderBook.py
 """
 
 

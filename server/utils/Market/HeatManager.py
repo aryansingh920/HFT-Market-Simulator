@@ -1,11 +1,5 @@
 """
-Created on 15/01/2025
-
-@author: Aryan
-
-Filename: HeatManager.py
-
-Relative Path: server/utils/Market/HeatManager.py
+HeatManager.py
 """
 
 from datetime import datetime

@@ -1,11 +1,5 @@
 """
-Created on 15/01/2025
-
-@author: Aryan
-
-Filename: Order.py
-
-Relative Path: server/utils/Market/Order.py
+Order.py
 """
 
 

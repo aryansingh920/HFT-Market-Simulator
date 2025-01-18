@@ -1,17 +1,17 @@
 """
-Created on 15/01/2025
+DataLogger.py
 
-@author: Aryan
-
-Filename: DataLogger.py
-
-Relative Path: server/utils/Market/DataLogger.py
+Handles all data logging: orders, trades, order book snapshots, etc.
+Also broadcasts each event in real-time via Socket.IO.
 """
 
 import csv
 import json
 import os
 import time
+
+# NEW IMPORT for real-time broadcasting:
+from Market.SocketManager import broadcast_event
 
 
 class DataLogger:
@@ -50,11 +50,10 @@ class DataLogger:
         self.order_events.clear()
         self.trade_events.clear()
         self.snapshot_events.clear()
-
         self.symbol_events = {sym: [] for sym in self.symbols}
 
     def log_order(self, order):
-        """Log each new order event in memory."""
+        """Log each new order event in memory and broadcast."""
         record = {
             "timestamp": time.time(),
             "event_type": "ORDER",
@@ -67,27 +66,36 @@ class DataLogger:
             "price": order.price
         }
         self.order_events.append(record)
-        # Also store in symbol-specific log (for reference)
         self.symbol_events[order.symbol].append(record)
+
+        # NEW: broadcast the order event in real-time
+        broadcast_event("new_order", record)
 
     def log_order_book(self, symbol, bids, asks, order_id):
         """
-        Log the state of the order book for a given symbol right after processing an order.
+        Log the state of the order book for a given symbol right after processing an order
+        and broadcast.
         """
         record = {
             "timestamp": time.time(),
             "event_type": "ORDER_BOOK",
             "symbol": symbol,
             "order_id": order_id,
-            # Serialize bids and asks as JSON strings for readability in CSV
-            "bids": json.dumps(bids),
+            "bids": json.dumps(bids),  # store as JSON for CSV readability
             "asks": json.dumps(asks)
         }
-        # Append the order book log to in-memory sym
+        # We don't store this in an array above (unless you want to track all snapshots).
+        # Optionally, you could store in self.snapshot_events if you want:
+        #   self.snapshot_events.append(record)
+        #   self.symbol_events[symbol].append(record)
+
+        # NEW: broadcast the order-book update
+        broadcast_event("order_book", record)
 
     def log_trade(self, symbol, trade_type, trade_size, trade_price):
         """
-        Called whenever a trade happens. Store as an event of type 'TRADE'.
+        Called whenever a trade happens. Store as an event of type 'TRADE'
+        and broadcast.
         """
         record = {
             "timestamp": time.time(),
@@ -98,12 +106,14 @@ class DataLogger:
             "trade_price": trade_price
         }
         self.trade_events.append(record)
-        # Also store in symbol-specific log
         self.symbol_events[symbol].append(record)
+
+        # NEW: broadcast the trade
+        broadcast_event("trade", record)
 
     def log_snapshot(self, step, symbol, best_bid, best_ask, mid_price):
         """
-        Called at each simulation step to record a 'SNAPSHOT'.
+        Called at each simulation step to record a 'SNAPSHOT' and broadcast.
         """
         record = {
             "timestamp": time.time(),
@@ -115,8 +125,10 @@ class DataLogger:
             "mid_price": mid_price
         }
         self.snapshot_events.append(record)
-        # Also store in symbol-specific log
         self.symbol_events[symbol].append(record)
+
+        # NEW: broadcast the snapshot
+        broadcast_event("snapshot", record)
 
     def end_heat(self):
         """
@@ -172,7 +184,6 @@ class DataLogger:
         # Write per-symbol CSV
         for sym, events in self.symbol_events.items():
             events.sort(key=lambda x: x["timestamp"])
-            # Identify the fieldnames that might appear for each event type
             fieldnames = set()
             for e in events:
                 fieldnames.update(e.keys())
@@ -200,4 +211,3 @@ class DataLogger:
             writer.writeheader()
             for row in rows:
                 writer.writerow(row)
-

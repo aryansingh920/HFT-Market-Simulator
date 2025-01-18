@@ -5,3 +5,5 @@ mplfinance
 pandas
 dash
 plotly
+python-socketio 
+eventlet
