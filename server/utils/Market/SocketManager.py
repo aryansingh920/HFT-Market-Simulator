@@ -39,5 +39,5 @@ def broadcast_event(event_name, data):
     Utility function to broadcast a given event (event_name)
     with data (a dict) to all connected clients.
     """
-    print(f"[SocketManager] Emitting event: {event_name}, Data: {data}")
+    # print(f"[SocketManager] Emitting event: {event_name}, Data: {data}")
     sio.emit(event_name, data)

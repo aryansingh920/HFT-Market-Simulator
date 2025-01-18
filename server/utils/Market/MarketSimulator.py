@@ -9,7 +9,7 @@ import random
 import time
 import math
 import numpy as np
-
+from tqdm import trange
 from Market.HeatManager import HeatManager
 from Market.Order import Order
 from Market.OrderBook import OrderBook
@@ -119,7 +119,7 @@ class MarketSimulator:
         self.order_id_counter += 1
         order = Order(
             order_id=self.order_id_counter,
-            symbol=symbol,
+            symbol=symbol,  # <-- use 'symbol' here
             trader_type=trader_type,
             order_type=order_type,
             side=side,
@@ -157,10 +157,11 @@ class MarketSimulator:
         total_sim_time = self.heat_manager.heat_duration_seconds
         time_per_step = total_sim_time / steps if steps else 0.0
 
-        for step in range(steps):
+        # Use trange for a progress bar in the console
+        for step in trange(steps, desc="Simulation Progress"):
             step_start_time = time.time()
 
-            # For each symbol, generate and process some random orders
+            # For each symbol, generate and process random orders
             for sym, sym_conf in self.symbols_config.items():
                 lam_rate = sym_conf.get("lambda_rate", 10.0)
                 num_orders = np.random.poisson(lam_rate)
