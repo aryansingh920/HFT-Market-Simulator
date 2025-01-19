@@ -2,16 +2,19 @@
 DataLogger.py
 
 Handles all data logging: orders, trades, order book snapshots, etc.
-Also broadcasts each event in real-time via Socket.IO.
+Also broadcasts each event in real-time via a WebSocket server (websockets).
 """
 
 import csv
 import json
 import os
 import time
+import asyncio
 
-# NEW IMPORT for real-time broadcasting:
-from Market.SocketManager import broadcast_event
+# Import only the broadcast_event function
+from Market.WebSocketManager import broadcast_event
+# Import the module to dynamically access global_event_loop
+import Market.WebSocketManager as ws_manager
 
 
 class DataLogger:
@@ -21,39 +24,31 @@ class DataLogger:
       - orders.csv        (all orders)
       - trades.csv        (all trades)
       - snapshots.csv     (all symbols, all snapshots)
-      - symbol_<SYM>.csv  (per symbol snapshots/trades)
+      - symbol_<SYM>.csv  (per symbol, includes orders/trades/snapshots)
     """
 
-    def __init__(self, base_log_dir="logs", symbols=None):
+    def __init__(self, base_log_dir="logs", symbols=None, loop=None):
         self.base_log_dir = base_log_dir
         self.symbols = symbols if symbols else []
-
-        # Will be set each time a heat starts/ends
         self.current_heat_id = None
         self.current_heat_dir = None
-
-        # In-memory storage for the current heat
-        self.order_events = []     # All orders
-        self.trade_events = []     # All trades
-        self.snapshot_events = []  # All snapshots
-        self.symbol_events = {}    # symbol -> list of events
+        self.order_events = []
+        self.trade_events = []
+        self.snapshot_events = []
+        self.symbol_events = {}
+        self.loop = loop
 
     def start_new_heat(self, heat_id):
-        """Called by HeatManager (or simulator) to start a new heat."""
         self.current_heat_id = heat_id
         self.current_heat_dir = os.path.join(
-            self.base_log_dir, f"heat_{heat_id}"
-        )
+            self.base_log_dir, f"heat_{heat_id}")
         os.makedirs(self.current_heat_dir, exist_ok=True)
-
-        # Initialize or clear in-memory logs
         self.order_events.clear()
         self.trade_events.clear()
         self.snapshot_events.clear()
         self.symbol_events = {sym: [] for sym in self.symbols}
 
     def log_order(self, order):
-        """Log each new order event in memory and broadcast."""
         record = {
             "timestamp": time.time(),
             "event_type": "ORDER",
@@ -67,37 +62,20 @@ class DataLogger:
         }
         self.order_events.append(record)
         self.symbol_events[order.symbol].append(record)
-
-        # NEW: broadcast the order event in real-time
-        # print(f"[DataLogger] Logging order: {record}")
-        broadcast_event("new_order", record)
+        self._safe_broadcast("new_order", record)
 
     def log_order_book(self, symbol, bids, asks, order_id):
-        """
-        Log the state of the order book for a given symbol right after processing an order
-        and broadcast.
-        """
         record = {
             "timestamp": time.time(),
             "event_type": "ORDER_BOOK",
             "symbol": symbol,
             "order_id": order_id,
-            "bids": json.dumps(bids),  # store as JSON for CSV readability
+            "bids": json.dumps(bids),
             "asks": json.dumps(asks)
         }
-        # We don't store this in an array above (unless you want to track all snapshots).
-        # Optionally, you could store in self.snapshot_events if you want:
-        #   self.snapshot_events.append(record)
-        #   self.symbol_events[symbol].append(record)
-
-        # NEW: broadcast the order-book update
-        broadcast_event("order_book", record)
+        self._safe_broadcast("order_book", record)
 
     def log_trade(self, symbol, trade_type, trade_size, trade_price):
-        """
-        Called whenever a trade happens. Store as an event of type 'TRADE'
-        and broadcast.
-        """
         record = {
             "timestamp": time.time(),
             "event_type": "TRADE",
@@ -108,14 +86,9 @@ class DataLogger:
         }
         self.trade_events.append(record)
         self.symbol_events[symbol].append(record)
-
-        # NEW: broadcast the trade
-        broadcast_event("trade", record)
+        self._safe_broadcast("trade", record)
 
     def log_snapshot(self, step, symbol, best_bid, best_ask, mid_price):
-        """
-        Called at each simulation step to record a 'SNAPSHOT' and broadcast.
-        """
         record = {
             "timestamp": time.time(),
             "event_type": "SNAPSHOT",
@@ -127,78 +100,45 @@ class DataLogger:
         }
         self.snapshot_events.append(record)
         self.symbol_events[symbol].append(record)
-
-        # NEW: broadcast the snapshot
-        broadcast_event("snapshot", record)
+        self._safe_broadcast("snapshot", record)
 
     def end_heat(self):
-        """
-        Called when the heat ends to write the logs to disk,
-        then clear them from memory.
-        """
-        # Sort each type of event by timestamp for continuity
         self.order_events.sort(key=lambda x: x["timestamp"])
         self.trade_events.sort(key=lambda x: x["timestamp"])
         self.snapshot_events.sort(key=lambda x: x["timestamp"])
 
-        # Write orders
         orders_file = os.path.join(self.current_heat_dir, "orders.csv")
         order_fieldnames = [
-            "timestamp",
-            "event_type",
-            "order_id",
-            "symbol",
-            "trader_type",
-            "order_type",
-            "side",
-            "size",
-            "price"
+            "timestamp", "event_type", "order_id", "symbol",
+            "trader_type", "order_type", "side", "size", "price"
         ]
         self._write_csv(orders_file, order_fieldnames, self.order_events)
 
-        # Write trades
         trades_file = os.path.join(self.current_heat_dir, "trades.csv")
         trade_fieldnames = [
-            "timestamp",
-            "event_type",
-            "symbol",
-            "trade_type",
-            "trade_size",
-            "trade_price"
+            "timestamp", "event_type", "symbol",
+            "trade_type", "trade_size", "trade_price"
         ]
         self._write_csv(trades_file, trade_fieldnames, self.trade_events)
 
-        # Write snapshots (for all symbols)
         snapshots_file = os.path.join(self.current_heat_dir, "snapshots.csv")
         snapshot_fieldnames = [
-            "timestamp",
-            "event_type",
-            "step",
-            "symbol",
-            "best_bid",
-            "best_ask",
-            "mid_price"
+            "timestamp", "event_type", "step", "symbol",
+            "best_bid", "best_ask", "mid_price"
         ]
         self._write_csv(snapshots_file, snapshot_fieldnames,
                         self.snapshot_events)
 
-        # Write per-symbol CSV
         for sym, events in self.symbol_events.items():
             events.sort(key=lambda x: x["timestamp"])
-            fieldnames = set()
-            for e in events:
-                fieldnames.update(e.keys())
-            fieldnames = list(fieldnames)
-
+            fieldnames = list({key for e in events for key in e})
             symbol_file = os.path.join(
                 self.current_heat_dir, f"symbol_{sym}.csv")
             self._write_csv(symbol_file, fieldnames, events)
 
         print(
-            f"Heat {self.current_heat_id} data saved to {self.current_heat_dir}"
-        )
+            f"Heat {self.current_heat_id} data saved to {self.current_heat_dir}")
 
-        # Clear in-memory data after saving
         self.order_events.clear()
         self.trade_events.clear()
         self.snapshot_events.clear()
@@ -206,9 +146,22 @@ class DataLogger:
 
     @staticmethod
     def _write_csv(filepath, fieldnames, rows):
-        """Utility method to write rows to CSV with given fieldnames."""
         with open(filepath, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             for row in rows:
                 writer.writerow(row)
+
+    def _safe_broadcast(self, event_name, data):
+        """
+        Schedule the broadcast_event on the stored event loop.
+        """
+        if self.loop is not None:
+            # print(f"[DataLogger] Scheduling broadcast for event: {event_name}")
+            self.loop.call_soon_threadsafe(
+                asyncio.create_task,
+                broadcast_event(event_name, data)
+            )
+        else:
+            print(
+                f"[DataLogger] No event loop available for event: {event_name}")

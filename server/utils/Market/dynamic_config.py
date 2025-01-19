@@ -31,13 +31,13 @@ def build_symbol_config(symbol, initial_price, heat_duration_minutes=0.5):
     }
 
 
-def build_simulation_config(sim_name="MyHFTSimulation"):
+def build_simulation_config(sim_name="MyHFTSimulation", duration_mins=0.25):
     symbol_prices = {
         "AAPL": 120.0,
         "GOOG": 1500.0,
         "TSLA": 700.0
     }
-    heat_time = 0.25  # 30 seconds per heat
+    heat_time = duration_mins  # 30 seconds per heat
 
     symbols_config = {}
     for sym, price in symbol_prices.items():

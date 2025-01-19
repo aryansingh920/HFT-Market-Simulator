@@ -14,8 +14,8 @@ Entry point to run the Socket.IO server with eventlet.
 """
 
 
+from server.utils.Market.WebSocketManager import app
 import eventlet
-from Market.SocketManager import app
 if __name__ == "__main__":
     # Run the WSGI app (which includes the Socket.IO server) via eventlet
     PORT = 8000

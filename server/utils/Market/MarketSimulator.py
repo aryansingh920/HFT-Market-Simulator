@@ -22,7 +22,7 @@ class MarketSimulator:
     and retains complete logging of orders, trades, and snapshots.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, loop=None):
         self.name = config.get("name", "DefaultSimulation")
         self.symbols_config = config.get("symbols_config", {})
         self.heat_duration = config.get("global_heat_duration", 1.0)
@@ -32,7 +32,9 @@ class MarketSimulator:
         # Data logger for logging + real-time broadcasting
         self.data_logger = DataLogger(
             base_log_dir="simulation_logs",
-            symbols=self.symbols
+            symbols=self.symbols,
+            loop=loop
+
         )
 
         # HeatManager to handle rotating logs each "heat"
