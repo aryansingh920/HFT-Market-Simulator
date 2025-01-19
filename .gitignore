@@ -9,3 +9,7 @@ simulation_logs
 client/node_modules
 
 client/.next
+
+server/Market/__pycache__
+
+server/Market/__pycache__

@@ -57,7 +57,7 @@ if __name__ == "__main__":
         time.sleep(0.1)
 
     simulation_config = build_simulation_config(
-        sim_name="MyDynamicHFTSimulation", duration_mins=5
+        sim_name="MyDynamicHFTSimulation", duration_mins=1.0
     )
     # Pass the global event loop to MarketSimulator
     simulator = MarketSimulator(
@@ -69,7 +69,8 @@ if __name__ == "__main__":
         # Run the synchronous simulation in a separate thread
         loop = asyncio.get_event_loop()
         # Adjust steps as needed
-        await loop.run_in_executor(None, simulator.run, 50000)
+        steps = 100
+        await loop.run_in_executor(None, simulator.run, steps)
         print("[Main] Simulation finished.")
 
     set_simulation_callback(run_simulation)
