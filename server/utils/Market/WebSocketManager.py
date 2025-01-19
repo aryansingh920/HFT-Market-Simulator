@@ -1,13 +1,11 @@
+# WebSocketManager.py
+
 import asyncio
 import json
 import websockets
 
 connected_clients = set()
-
-# Global reference to the WebSocket server's event loop
 global_event_loop = None
-
-# Simulation callback
 simulation_callback = None
 
 
@@ -18,17 +16,18 @@ def set_simulation_callback(callback):
 
 async def handle_client(websocket, path=None):
     connected_clients.add(websocket)
+    print(f"[WebSocketManager] Client connected: {websocket.remote_address}")
     try:
         async for message in websocket:
             try:
                 data = json.loads(message)
                 print("Data received from client: ", data)
 
-                # Check for the start_simulation command
                 if data.get("command") == "start_simulation":
                     print("[WebSocketManager] Starting simulation...")
                     if simulation_callback:
-                        await simulation_callback()
+                        # Run the simulation without awaiting it to prevent blocking
+                        asyncio.create_task(simulation_callback())
             except json.JSONDecodeError:
                 print(
                     f"[WebSocketManager] Received invalid JSON from client: {websocket.remote_address}")
