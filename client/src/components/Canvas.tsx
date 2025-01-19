@@ -6,6 +6,7 @@ import OrderBook from "./OrderBook";
 // Dynamically import ResizableDraggable with SSR disabled
 const ResizableDraggable = dynamic(() => import("./ResizableDraggable"), {
   ssr: false,
+  loading: () => <div>Loading...</div>,
 });
 
 const Canvas = () => {
