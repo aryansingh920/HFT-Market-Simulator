@@ -5,3 +5,7 @@ server/utils/Market/__pycache__
 server/utils/simulation_logs
 
 simulation_logs
+
+client/node_modules
+
+client/.next
