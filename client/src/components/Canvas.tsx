@@ -1,9 +1,12 @@
+// src/components/Canvas.tsx
+
 "use client";
+
 import React, { useState } from "react";
 import dynamic from "next/dynamic";
-import Navbar from "./Navbar";
-import OrderBook from "./OrderBook";
-import TradeFeed from "./TradeFeed";
+import Navbar from "@/components/Navbar";
+import OrderBook from "@/components/OrderBook";
+import TradeFeed from "@/components/TradeFeed";
 
 // Dynamically import ResizableDraggable with SSR disabled
 const ResizableDraggable = dynamic(() => import("./ResizableDraggable"), {
@@ -17,7 +20,7 @@ interface ComponentConfig {
   y: number;
 }
 
-const Canvas = () => {
+const Canvas: React.FC = () => {
   const [components, setComponents] = useState<ComponentConfig[]>([]);
 
   // Handler to add new components

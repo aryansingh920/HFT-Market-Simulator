@@ -1,5 +1,7 @@
+// src/types/types.ts
+
 // Snapshot Event Type
-interface SnapshotEvent {
+export interface SnapshotEvent {
   event_name: "snapshot";
   data: {
     timestamp: number;
@@ -13,7 +15,7 @@ interface SnapshotEvent {
 }
 
 // Order Book Event Type
-interface OrderBookEvent {
+export interface OrderBookEvent {
   event_name: "order_book";
   data: {
     timestamp: number;
@@ -26,7 +28,7 @@ interface OrderBookEvent {
 }
 
 // Trade Event Type
-interface TradeEvent {
+export interface TradeEvent {
   event_name: "trade";
   data: {
     timestamp: number;
@@ -38,7 +40,8 @@ interface TradeEvent {
   };
 }
 
-interface NewOrderEvent {
+// New Order Event Type
+export interface NewOrderEvent {
   event_name: "new_order";
   data: {
     timestamp: number;

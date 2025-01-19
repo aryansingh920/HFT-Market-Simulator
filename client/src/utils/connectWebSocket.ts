@@ -1,43 +1,7 @@
+// src/utils/connectWebSocket.ts
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { SocketEvent } from "@/types/types";
-
-export const connectWebSocket = (
-  url: string,
-  onEvent: (event: SocketEvent) => void
-) => {
-  const socket = new WebSocket(url);
-
-  socket.onopen = () => {
-    console.log("WebSocket connection established.");
-    // Send the start simulation command
-    socket.send(JSON.stringify({ command: "start_simulation" }));
-  };
-
-  socket.onmessage = (message) => {
-    try {
-      const data = JSON.parse(message.data);
-
-      // Validate and cast the data to a known event type
-      if (isSocketEvent(data)) {
-        onEvent(data);
-      } else {
-        // console.warn("Unknown event type received:", data);
-      }
-    } catch (error) {
-      console.error("Error parsing WebSocket message:", error);
-    }
-  };
-
-  socket.onerror = (error) => {
-    console.error("WebSocket error:", error);
-  };
-
-  socket.onclose = () => {
-    console.log("WebSocket connection closed.");
-  };
-
-  return socket;
-};
 
 // Type Guard to validate the structure of incoming messages
 function isSocketEvent(event: any): event is SocketEvent {
@@ -87,3 +51,41 @@ function isSocketEvent(event: any): event is SocketEvent {
       return false;
   }
 }
+
+export const connectWebSocket = (
+  url: string,
+  onEvent: (event: SocketEvent) => void
+) => {
+  const socket = new WebSocket(url);
+
+  socket.onopen = () => {
+    console.log("WebSocket connection established.");
+    // Send the start simulation command
+    socket.send(JSON.stringify({ command: "start_simulation" }));
+  };
+
+  socket.onmessage = (message) => {
+    try {
+      const data = JSON.parse(message.data);
+
+      // Validate and cast the data to a known event type
+      if (isSocketEvent(data)) {
+        onEvent(data);
+      } else {
+        console.warn("Unknown event type received:", data);
+      }
+    } catch (error) {
+      console.error("Error parsing WebSocket message:", error);
+    }
+  };
+
+  socket.onerror = (error) => {
+    console.error("WebSocket error:", error);
+  };
+
+  socket.onclose = () => {
+    console.log("WebSocket connection closed.");
+  };
+
+  return socket;
+};

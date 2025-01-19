@@ -1,99 +1,91 @@
+// src/components/TradeGraph.tsx
+
 import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
-
-interface TradeData {
-  timestamp: number;
-  trade_price: number;
-}
+import { TradeEvent } from "@/types/types";
 
 interface TradeGraphProps {
-  trades: TradeData[]; // List of trades
+  symbol: string;
+  trades: TradeEvent[];
 }
 
-const TradeGraph: React.FC<TradeGraphProps> = ({ trades }) => {
+const TradeGraph: React.FC<TradeGraphProps> = ({ symbol, trades }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const width = 800; // Graph width
-  const height = 400; // Graph height
-  const margin = { top: 20, right: 30, bottom: 30, left: 50 };
 
   useEffect(() => {
-    if (!svgRef.current) return;
+    // Set dimensions and margins
+    const margin = { top: 20, right: 30, bottom: 30, left: 40 };
+    const width = 400 - margin.left - margin.right;
+    const height = 200 - margin.top - margin.bottom;
 
-    // Initialize the SVG
-    const svg = d3
-      .select(svgRef.current)
-      .attr("width", width)
-      .attr("height", height);
+    // Select the SVG element
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove(); // Clear previous contents
+
+    const g = svg
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // Parse the data
+    const data = trades
+      .filter((trade) => trade.data.symbol === symbol)
+      .map((trade) => ({
+        timestamp: new Date(trade.data.timestamp * 1000), // Assuming timestamp is in seconds
+        price: trade.data.trade_price,
+      }));
+
+    if (data.length === 0) return; // No data to display
 
     // Set up scales
-    const xScale = d3
+    const x = d3
       .scaleTime()
-      .domain(
-        d3.extent(trades, (d) => new Date(d.timestamp * 1000)) as [Date, Date]
-      )
-      .range([margin.left, width - margin.right]);
+      .domain(d3.extent(data, (d) => d.timestamp) as [Date, Date])
+      .range([0, width]);
 
-    const yScale = d3
+    const y = d3
       .scaleLinear()
-      .domain([0, d3.max(trades, (d) => d.trade_price) || 100]) // Default to 100 if no trades
-      .range([height - margin.bottom, margin.top]);
+      .domain([
+        d3.min(data, (d) => d.price) as number,
+        d3.max(data, (d) => d.price) as number,
+      ])
+      .nice()
+      .range([height, 0]);
 
-    // Draw Axes
-    svg.selectAll(".x-axis").remove();
-    svg
-      .append("g")
-      .attr("class", "x-axis")
-      .attr("transform", `translate(0,${height - margin.bottom})`)
-      .call(
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        d3
-          .axisBottom(xScale)
-          .ticks(5)
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          .tickFormat((d: Date | d3.NumberValue, _i: number) =>
-            d3.timeFormat("%H:%M:%S")(d as Date)
-          )
-      );
+    // Add X axis
+    g.append("g")
+      .attr("transform", `translate(0,${height})`)
+      .call(d3.axisBottom(x));
 
-    svg.selectAll(".y-axis").remove();
-    svg
-      .append("g")
-      .attr("class", "y-axis")
-      .attr("transform", `translate(${margin.left},0)`)
-      .call(d3.axisLeft(yScale));
+    // Add Y axis
+    g.append("g").call(d3.axisLeft(y));
 
-    // Draw Line
+    // Define the line
     const line = d3
-      .line<TradeData>()
-      .x((d) => xScale(new Date(d.timestamp * 1000)))
-      .y((d) => yScale(d.trade_price))
+      .line<{ timestamp: Date; price: number }>()
+      .x((d) => x(d.timestamp))
+      .y((d) => y(d.price))
       .curve(d3.curveMonotoneX);
 
-    svg.selectAll(".trade-line").remove();
-    svg
-      .append("path")
-      .datum(trades)
-      .attr("class", "trade-line")
+    // Add the line path
+    g.append("path")
+      .datum(data)
       .attr("fill", "none")
       .attr("stroke", "steelblue")
-      .attr("stroke-width", 2)
+      .attr("stroke-width", 1.5)
       .attr("d", line);
 
-    // Add Circles for Points
-    svg.selectAll(".trade-point").remove();
-    svg
-      .selectAll(".trade-point")
-      .data(trades)
+    // Add points
+    g.selectAll("dot")
+      .data(data)
       .enter()
       .append("circle")
-      .attr("class", "trade-point")
-      .attr("cx", (d) => xScale(new Date(d.timestamp * 1000)))
-      .attr("cy", (d) => yScale(d.trade_price))
-      .attr("r", 4)
-      .attr("fill", "red");
-  }, [trades]);
+      .attr("cx", (d) => x(d.timestamp))
+      .attr("cy", (d) => y(d.price))
+      .attr("r", 3)
+      .attr("fill", "steelblue");
+  }, [trades, symbol]);
 
-  return <svg ref={svgRef}></svg>;
+  return <svg ref={svgRef} width={400} height={200}></svg>;
 };
 
 export default TradeGraph;
