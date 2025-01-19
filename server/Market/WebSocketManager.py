@@ -1,4 +1,12 @@
-# WebSocketManager.py
+"""
+Created on 19/01/2025
+
+@author: Aryan
+
+Filename: WebSocketManager.py
+
+Relative Path: server/Market/WebSocketManager.py
+"""
 
 import asyncio
 import json

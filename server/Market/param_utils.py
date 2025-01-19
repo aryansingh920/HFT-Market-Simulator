@@ -1,10 +1,13 @@
 """
-param_utils.py
+Created on 19/01/2025
 
-Provides helper functions for dynamically calculating parameters like
-lambda_rate, initial_liquidity, mu, and sigma, based on initial price,
-heat time, or other factors.
+@author: Aryan
+
+Filename: param_utils.py
+
+Relative Path: server/Market/param_utils.py
 """
+
 
 import random
 

@@ -1,9 +1,13 @@
 """
-MarketSimulator.py
+Created on 19/01/2025
 
-Handles the main logic of running the simulation, generating random orders,
-matching them, logging, etc.
+@author: Aryan
+
+Filename: MarketSimulator.py
+
+Relative Path: server/Market/MarketSimulator.py
 """
+
 
 import random
 import time

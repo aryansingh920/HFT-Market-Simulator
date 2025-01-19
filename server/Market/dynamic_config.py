@@ -1,5 +1,11 @@
 """
-dynamic_config.py
+Created on 19/01/2025
+
+@author: Aryan
+
+Filename: dynamic_config.py
+
+Relative Path: server/Market/dynamic_config.py
 """
 
 from Market.param_utils import (

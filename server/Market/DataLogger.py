@@ -1,9 +1,13 @@
 """
-DataLogger.py
+Created on 19/01/2025
 
-Handles all data logging: orders, trades, order book snapshots, etc.
-Also broadcasts each event in real-time via a WebSocket server (websockets).
+@author: Aryan
+
+Filename: DataLogger.py
+
+Relative Path: server/Market/DataLogger.py
 """
+
 
 import csv
 import json
