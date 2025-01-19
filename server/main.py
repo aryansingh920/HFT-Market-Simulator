@@ -69,7 +69,7 @@ if __name__ == "__main__":
         # Run the synchronous simulation in a separate thread
         loop = asyncio.get_event_loop()
         # Adjust steps as needed
-        await loop.run_in_executor(None, simulator.run, 50000)
+        await loop.run_in_executor(None, simulator.run, 50)
         print("[Main] Simulation finished.")
 
     set_simulation_callback(run_simulation)
