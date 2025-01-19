@@ -21,7 +21,7 @@ export const connectWebSocket = (
       if (isSocketEvent(data)) {
         onEvent(data);
       } else {
-        console.warn("Unknown event type received:", data);
+        // console.warn("Unknown event type received:", data);
       }
     } catch (error) {
       console.error("Error parsing WebSocket message:", error);
