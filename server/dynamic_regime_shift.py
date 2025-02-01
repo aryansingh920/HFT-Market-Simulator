@@ -1,157 +1,302 @@
+"""
+Created on 01/02/2025
+
+@author: Aryan
+
+Filename: dynamic_regime_shift.py
+
+Relative Path: server/dynamic_regime_shift.py
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
-
+from config import configs, configs_historical
 
 def simulate_dynamic_stock_price(
-    duration=1,  # Total time duration in years
-    steps=252,  # Number of steps (e.g., trading days in a year)
-    initial_price=100,  # Initial stock price
-    initial_liquidity=1_000_000,  # Initial liquidity
-    drift=0.05,  # Mean return (annualized)
-    volatility=0.2,  # Base volatility (annualized)
-    mean_reversion_speed=0.1,  # For mean-reverting GBM
-    long_term_mean=100,  # Long-term mean price for mean-reverting GBM
-    jump_intensity=0.1,  # Jump intensity for jump-diffusion
-    jump_mean=0.02,  # Mean of the jump size
-    jump_std=0.1,  # Stddev of the jump size
-    transaction_cost=0.001,  # Transaction cost as a fraction of price
-    # Optional: Regime-switching parameters [(mu, sigma, duration)]
+    duration=1,                     # Total simulation time in years
+    steps=252,                      # Number of time steps (e.g. trading days)
+    initial_price=100,              # Starting price
+    fundamental_value=100,          # Initial “true” value
+    initial_liquidity=1e6,          # Starting liquidity level
+    base_volatility=0.2,            # Annualized base volatility
+    # List of regime dictionaries (for Markov switching)
+    regimes=None,
+    # Optional list of regime–switch tuples (mu, sigma, duration)
     regime_switch=None,
-    hurst=0.5,  # Hurst parameter for fractional GBM
-    market_shock_prob=0.01,  # Probability of a random market shock
-    market_shock=None,  # "bullish" or "bearish"
-    title="Stock Price Simulation"
+    garch_params=(0.02, 0.1, 0.85),   # (omega, alpha, beta) for GARCH update
+    macro_impact={'interest_rate': (0.03, 0.01),
+                  'inflation': (0.02, 0.005)},  # (level, volatility)
+    sentiment_params=(0.5, 0.2),      # (mean-reversion speed, volatility)
+    # (price drop threshold, liquidity threshold)
+    flash_crash_threshold=(-0.15, 3),
+    # How strongly the market maker counteracts deviations
+    market_maker_power=0.1,
+    transaction_cost=0.0005,          # Base transaction cost factor
+    jump_params=(0.1, 0.02, 0.1),       # (jump_intensity, jump_mean, jump_std)
+    # Speed for mean-reversion (when low liquidity)
+    mean_reversion_speed=0.1,
+    # Long-term mean price for mean-reverting models (default to fundamental)
+    long_term_mean=None,
+    # Chance of a random market shock (jump diffusion)
+    market_shock_prob=0.01,
+    # Optionally apply a global shock ("bullish" or "bearish")
+    market_shock=None,
+    random_seed=None
 ):
-    dt = duration / steps  # Time step
-    prices = [initial_price]  # Initialize price list
-    np.random.seed(42)  # For reproducibility
+    """
+    A simulation that combines many market features:
+      - Dynamic regime switching via a Markov chain over provided regimes.
+      - Multiple simulation “modes” (GBM, mean–reversion, jump–diffusion, stochastic volatility, extra regime–switching).
+      - Macroeconomic factor evolution (interest rate, inflation) affecting drift.
+      - GARCH–style volatility updating.
+      - Sentiment feedback and liquidity dynamics.
+      - Flash–crash conditions and market maker stabilization.
+      - Global market shocks.
+    
+    Adjust parameters to simulate different market environments.
+    """
+    # Set seed for reproducibility
+    if random_seed is not None:
+        np.random.seed(random_seed)
 
-    # Initial regime-switching parameters
-    if regime_switch:
-        regime_idx = 0
-        regime_mu, regime_sigma, regime_duration = regime_switch[regime_idx]
-        time_in_regime = 0
+    dt = duration / steps
+    prices = [initial_price]
+    fundamentals = [fundamental_value]
+    volatilities = [base_volatility]
 
+    # Set long-term mean to fundamental value if not provided
+    if long_term_mean is None:
+        long_term_mean = fundamental_value
+
+    # Initialize liquidity and sentiment
+    liquidity = initial_liquidity
+    sentiment = 0.0
+    liquidity_ema = 0.0  # Exponential moving average for volume/liquidity effect
+
+    # Initialize macroeconomic factors from provided tuples
+    interest_rate, interest_vol = macro_impact.get(
+        'interest_rate', (0.03, 0.01))
+    inflation, inflation_vol = macro_impact.get('inflation', (0.02, 0.005))
+
+    # Unpack GARCH parameters (omega, alpha, beta)
+    garch_omega, garch_alpha, garch_beta = garch_params
+
+    # --- Set up regime switching via a Markov chain ---
+    if regimes is None or len(regimes) == 0:
+        regimes = [{'name': 'normal', 'drift': 0.05, 'vol_scale': 1.0,
+                    'transitions': {'normal': 1.0}}]
+    regime_names = [r['name'] for r in regimes]
+
+    # Build a transition matrix from the regimes’ "transitions" dictionaries.
+    transition_matrix = np.zeros((len(regimes), len(regimes)))
+    for i, r in enumerate(regimes):
+        for j, name in enumerate(regime_names):
+            transition_matrix[i, j] = r.get('transitions', {}).get(name, 0.0)
+        row_sum = np.sum(transition_matrix[i])
+        if row_sum > 0:
+            transition_matrix[i] /= row_sum
+        else:
+            transition_matrix[i, i] = 1.0
+    current_regime = regime_names[0]
+
+    # --- Optional extra regime switching (from second code sample) ---
+    if regime_switch is not None and len(regime_switch) > 0:
+        regime_switch_idx = 0
+        regime_switch_mu, regime_switch_sigma, regime_switch_duration = regime_switch[
+            regime_switch_idx]
+        time_in_regime_switch = 0.0
+
+    # For stochastic volatility (Heston–like) model, initialize variance v.
+    v = base_volatility**2
+
+    # --- Helper function: choose which simulation model to use this step ---
     def choose_model(t, current_price, liquidity):
-        """Dynamically selects the GBM model based on time, liquidity, and shocks."""
-        if np.random.rand() < market_shock_prob:  # Simulate a market shock
+        # With a small probability, trigger a jump–diffusion (market shock)
+        if np.random.rand() < market_shock_prob:
             return "jump_diffusion"
-        elif liquidity < 500_000:  # Low liquidity leads to more mean-reverting behavior
+        # If liquidity is low, use a mean–reverting model
+        if liquidity < 0.5 * initial_liquidity:
             return "mean_reverting"
-        elif t < steps // 3:  # Early phase uses standard GBM
-            return "standard"
-        elif t < 2 * steps // 3:  # Mid-phase uses stochastic volatility
-            return "stochastic_volatility"
-        elif t % 50 == 0:  # Occasionally simulate regime-switching
+        # If an alternate regime switch parameter is provided, sometimes use it
+        if regime_switch is not None and (t % max(1, int(steps/10)) == 0):
             return "regime_switching"
-        else:  # Default fallback
-            return "standard"
+        # In the middle period, use stochastic volatility
+        if steps//3 < t < 2*steps//3:
+            return "stochastic_volatility"
+        # Default: standard GBM model
+        return "standard"
 
-    for t in range(steps):
+    # --- Begin simulation loop ---
+    for t in range(1, steps):
         current_price = prices[-1]
-        model = choose_model(t, current_price, initial_liquidity)
+        prev_price = prices[-2] if len(prices) > 1 else current_price
 
-        # Standard GBM
+        # Update macro factors (interest rate and inflation follow a small random walk)
+        interest_rate += np.random.normal(0, interest_vol * np.sqrt(dt))
+        inflation += np.random.normal(0, inflation_vol * np.sqrt(dt))
+
+        # Update the fundamental value (assumed to drift slowly)
+        new_fundamental = fundamentals[-1] * np.exp(0.02 * dt +
+                                                    0.02 * np.random.normal(0, np.sqrt(dt)))
+        fundamentals.append(new_fundamental)
+
+        # Compute deviation from the fundamental value
+        deviation = (current_price - new_fundamental) / new_fundamental
+
+        # --- Regime switching using Markov transition ---
+        regime_idx = regime_names.index(current_regime)
+        current_regime = np.random.choice(
+            regime_names, p=transition_matrix[regime_idx])
+        regime_params = next(r for r in regimes if r['name'] == current_regime)
+
+        # Update sentiment: a mean–reverting process toward 0
+        sentiment += sentiment_params[0] * (0 - sentiment) * dt + \
+            sentiment_params[1] * np.random.normal(0, np.sqrt(dt))
+
+        # --- GARCH–style volatility update ---
+        if len(prices) > 1:
+            ret = np.log(current_price / prev_price)
+        else:
+            ret = 0
+        new_variance = garch_omega + garch_alpha * \
+            (ret ** 2) + garch_beta * (volatilities[-1] ** 2)
+        garch_vol = np.sqrt(new_variance * dt)
+        # Adjust volatility by the regime’s scaling factor (if defined)
+        model_base_vol = garch_vol * regime_params.get('vol_scale', 1.0)
+
+        # --- Liquidity and market–maker impact ---
+        volume = np.abs(ret) * liquidity * (1 + 3 * sentiment)
+        liquidity_ema = 0.9 * liquidity_ema + 0.1 * volume
+        liquidity_ratio = liquidity_ema / initial_liquidity if initial_liquidity != 0 else 0
+        liquidity_impact = 1 / (1 + liquidity_ratio)
+        mm_force = market_maker_power * deviation * liquidity_impact
+
+        # --- Flash Crash Check ---
+        if len(prices) > 5:
+            recent_max = np.max(prices[-5:])
+            recent_drop = (current_price - recent_max) / recent_max
+            if recent_drop < flash_crash_threshold[0] and liquidity < flash_crash_threshold[1]:
+                new_price = current_price * 0.95
+                prices.append(new_price)
+                volatilities.append(model_base_vol)
+                continue
+
+        # --- Choose simulation model for this step ---
+        model = choose_model(t, current_price, liquidity)
+
+        # Compute a drift effect that includes the regime’s drift, macro effects, and market–maker force.
+        drift_effect = regime_params.get(
+            'drift', 0.05) + 0.5 * interest_rate - 0.8 * inflation + mm_force
+        shock = 0  # to be computed below
+
+        # --- Model-specific simulation ---
         if model == "standard":
+            # Standard geometric Brownian motion
             dW = np.random.normal(0, np.sqrt(dt))
-            dS = drift * current_price * dt + volatility * current_price * dW
-            prices.append(current_price + dS)
+            shock = model_base_vol * dW + sentiment * model_base_vol / 2
+            new_price = current_price * np.exp(drift_effect * dt + shock)
 
-        # Mean-Reverting GBM
         elif model == "mean_reverting":
+            # Price reverts toward the long–term mean (here taken as the fundamental)
             dW = np.random.normal(0, np.sqrt(dt))
-            dS = mean_reversion_speed * \
-                (long_term_mean - current_price) * \
-                dt + volatility * current_price * dW
-            prices.append(current_price + dS)
+            dS = mean_reversion_speed * (long_term_mean - current_price) * dt + \
+                model_base_vol * current_price * dW
+            new_price = current_price + dS
 
-        # Jump-Diffusion GBM
         elif model == "jump_diffusion":
+            # Include a jump component (simulate jump event with probability proportional to jump intensity)
             dW = np.random.normal(0, np.sqrt(dt))
-            jump = np.random.poisson(
-                jump_intensity * dt) * np.random.normal(jump_mean, jump_std)
-            dS = drift * current_price * dt + volatility * \
-                current_price * dW + jump * current_price
-            prices.append(current_price + dS)
+            jump_intensity, jump_mean, jump_std = jump_params
+            jump = 0
+            if np.random.rand() < jump_intensity * dt:
+                jump = np.random.normal(jump_mean, jump_std)
+            shock = model_base_vol * dW + jump + sentiment * model_base_vol / 2
+            new_price = current_price * np.exp(drift_effect * dt + shock)
 
-        # Stochastic Volatility GBM (Heston model)
         elif model == "stochastic_volatility":
-            v = volatility**2  # Initial variance
+            # A simple Heston–like model for stochastic volatility
             kappa = mean_reversion_speed
-            theta = volatility**2  # Long-term variance
-            eta = 0.1  # Volatility of volatility
+            theta = base_volatility ** 2
+            eta = 0.1  # volatility of volatility
             dW1 = np.random.normal(0, np.sqrt(dt))
             dW2 = np.random.normal(0, np.sqrt(dt))
-            dv = kappa * (theta - v) * dt + eta * np.sqrt(v) * dW2
-            v = max(v + dv, 0)  # Ensure variance is non-negative
-            dS = drift * current_price * dt + np.sqrt(v) * current_price * dW1
-            prices.append(current_price + dS)
+            dv = kappa * (theta - v) * dt + eta * np.sqrt(max(v, 0)) * dW2
+            v = max(v + dv, 1e-8)  # ensure variance stays positive
+            shock = np.sqrt(v) * dW1 + sentiment * np.sqrt(v) / 2
+            new_price = current_price * np.exp(drift_effect * dt + shock)
 
-        # Regime-Switching GBM
-        elif model == "regime_switching" and regime_switch:
-            if time_in_regime >= regime_duration:
-                regime_idx = (regime_idx + 1) % len(regime_switch)
-                regime_mu, regime_sigma, regime_duration = regime_switch[regime_idx]
-                time_in_regime = 0
+        elif model == "regime_switching" and regime_switch is not None:
+            # Use an alternative regime switch (as in the second code sample)
             dW = np.random.normal(0, np.sqrt(dt))
-            dS = regime_mu * current_price * dt + regime_sigma * current_price * dW
-            prices.append(current_price + dS)
-            time_in_regime += dt
+            shock = regime_switch_mu * dt + regime_switch_sigma * dW
+            new_price = current_price * np.exp(shock)
+            time_in_regime_switch += dt
+            if time_in_regime_switch >= regime_switch_duration:
+                regime_switch_idx = (regime_switch_idx +
+                                     1) % len(regime_switch)
+                regime_switch_mu, regime_switch_sigma, regime_switch_duration = regime_switch[
+                    regime_switch_idx]
+                time_in_regime_switch = 0.0
+        else:
+            # Fallback to standard GBM if none of the above applies.
+            dW = np.random.normal(0, np.sqrt(dt))
+            shock = model_base_vol * dW + sentiment * model_base_vol / 2
+            new_price = current_price * np.exp(drift_effect * dt + shock)
 
-        # Transaction Costs (Apply globally)
-        prices[-1] -= transaction_cost * prices[-1]
+        # --- Transaction Cost Adjustments ---
+        effective_cost = transaction_cost * (1 + 2 * liquidity_ratio)
+        # Apply a friction: if the shock was positive, reduce gains; if negative, dampen losses.
+        if shock > 0:
+            new_price *= (1 - effective_cost)
+        else:
+            new_price *= (1 + effective_cost)
 
-        # Update Liquidity (Random Walk)
-        initial_liquidity *= 1 + np.random.normal(0, 0.0001)
+        # --- Update liquidity ---
+        liquidity *= np.exp(0.01 * dt + 0.002 *
+                            np.random.normal(0, np.sqrt(dt)))
+        liquidity *= (1 - 0.2 * np.abs(shock))
 
-    # Apply Bullish or Bearish Shock (10% Up or Down)
+        # Record the new price and volatility for this step.
+        prices.append(new_price)
+        volatilities.append(model_base_vol)
+
+    # --- Apply a global market shock if specified ---
     if market_shock == "bullish":
         prices = [p * 1.1 for p in prices]
     elif market_shock == "bearish":
         prices = [p * 0.9 for p in prices]
 
-    # Plot the results
-    plt.figure(figsize=(10, 5))
-    plt.plot(prices, label="Dynamic GBM Simulation")
-    plt.title(title)
+    # --- Plot the results ---
+    plt.figure(figsize=(12, 6))
+    plt.plot(prices, label='Market Price')
+    plt.plot(fundamentals, '--', label='Fundamental Value')
+    plt.title(
+        f"Dynamic Stock Price Simulation - Final Regime: {current_regime}")
     plt.xlabel("Time Steps")
-    plt.ylabel("Stock Price")
+    plt.ylabel("Price")
     plt.legend()
-    plt.grid()
+    plt.grid(True)
     plt.show()
 
     return prices
 
 
-configs = [
-    {"duration": 3, "steps": 756, "initial_price": 100, "drift": 0.1, "volatility": 0.3,
-     "regime_switch": [(0.1, 0.3, 500), (-0.2, 0.5, 256)], "jump_intensity": 0.05,
-     "jump_mean": -0.2, "jump_std": 0.1, "market_shock_prob": 0.02, "title": "Dot-Com Bubble"},  # Dot-Com Bubble
-
-    {"duration": 1, "steps": 252, "initial_price": 150, "drift": 0.02, "volatility": 0.2,
-     "regime_switch": [(-0.3, 0.6, 150), (0.05, 0.3, 102)], "jump_intensity": 0.1,
-     "jump_mean": -0.3, "jump_std": 0.15, "market_shock_prob": 0.05, "title": "2008 Crisis"},  # 2008 Crisis
-
-    {"duration": 1, "steps": 252, "initial_price": 300, "drift": 0.05, "volatility": 0.4,
-     "regime_switch": [(-0.4, 0.6, 50), (0.1, 0.3, 202)], "jump_intensity": 0.15,
-     "jump_mean": -0.2, "jump_std": 0.25, "market_shock_prob": 0.1, "title": "COVID-19 Crash"},  # COVID-19 Crash
-
-    {"duration": 5, "steps": 1260, "initial_price": 200, "drift": 0.08, "volatility": 0.15,
-     "jump_intensity": 0.01, "jump_mean": -0.05, "jump_std": 0.03, "market_shock_prob": 0.005, "title": "Prolonged Bull Market"},  # Prolonged Bull Market
-
-    {"duration": 1, "steps": 252, "initial_price": 50, "drift": 0.5, "volatility": 0.5,
-     "jump_intensity": 0.2, "jump_mean": 0.3, "jump_std": 0.15, "market_shock_prob": 0.1, "title": "Hyperinflation"},  # Hyperinflation
-
-    {"duration": 1, "steps": 252, "initial_price": 100, "drift": 0.02, "volatility": 0.4,
-     "mean_reversion_speed": 0.2, "long_term_mean": 90, "jump_intensity": 0.08,
-     "jump_mean": -0.1, "jump_std": 0.1, "market_shock_prob": 0.05, "title": "Post Liquidity Crisis"},  # Post-Liquidity Crisis
-
-    {"duration": 1 / 252, "steps": 10_000, "initial_price": 100, "drift": 0.001, "volatility": 0.05,
-     "transaction_cost": 0.0001, "market_shock_prob": 0.0001, "jump_intensity": 0.01,
-     "jump_mean": -0.01, "jump_std": 0.02, "title": "HFT Simulation"},  # HFT Simulation
-]
-
-
 if __name__ == "__main__":
-    for config in configs:
+
+    # 1) Run the modern configs
+    # for i, config in enumerate(configs, 1):
+    #     print(f"Running simulation for configuration {i}")
+    #     simulate_dynamic_stock_price(**config)
+    # Optionally, remove plt.show() in the function and do something like:
+    # plt.savefig(f"modern_config_{i}.png")
+
+    # 2) Now run the historical ones
+    for idx, config in enumerate(configs_historical, 1):
+        run_name = f"Historical Simulation #{idx}"
+        print(f"Running {run_name}")
         simulate_dynamic_stock_price(**config)
+        # Optionally, remove plt.show() in the function and do something like:
+        # plt.savefig(f"historical_config_{idx}.png")
+
+    # If you removed plt.show() in the function, do it once here:
+    # plt.show()
