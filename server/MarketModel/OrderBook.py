@@ -7,8 +7,6 @@ Filename: OrderBook.py
 
 Relative Path: server/MarketModel/OrderBook.py
 """
-
-
 import numpy as np
 
 
@@ -71,17 +69,14 @@ class OrderBook:
         """
         trades = []
         while self.bids and self.asks:
-            # For market orders, treat them as having an effective price equal to the opposing side.
             best_bid = self.bids[0]
             best_ask = self.asks[0]
             bid_price = best_bid["price"] if best_bid["order_type"] == "limit" else np.inf
             ask_price = best_ask["price"] if best_ask["order_type"] == "limit" else -np.inf
 
-            # Determine if a trade can occur. For market orders, we assume they immediately cross.
             if (bid_price >= ask_price) or (best_bid["order_type"] == "market") or (best_ask["order_type"] == "market"):
                 trade_quantity = min(
                     best_bid["quantity"], best_ask["quantity"])
-                # Use best ask price if available; if one side is a market order, default to a notional price.
                 trade_price = best_ask["price"] if best_ask["price"] is not None else best_bid["price"]
                 trades.append({
                     "bid_order_id": best_bid["order_id"],
@@ -106,8 +101,15 @@ class OrderBook:
           - Best bid and best ask.
           - The current lists of bid and ask orders.
         """
-        best_bid = self.bids[0]["price"] if self.bids and self.bids[0]["price"] is not None else None
-        best_ask = self.asks[0]["price"] if self.asks and self.asks[0]["price"] is not None else None
+        # For best prices, consider only limit orders (which have a numeric price).
+        limit_bids = [
+            order for order in self.bids if order["price"] is not None]
+        limit_asks = [
+            order for order in self.asks if order["price"] is not None]
+        best_bid = max(limit_bids, key=lambda o: o["price"])[
+            "price"] if limit_bids else None
+        best_ask = min(limit_asks, key=lambda o: o["price"])[
+            "price"] if limit_asks else None
         snapshot = {
             "timestamp": timestamp,
             "best_bid": best_bid,

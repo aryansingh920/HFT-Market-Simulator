@@ -1,0 +1,64 @@
+{
+  "name": "Test Simulation: Mixed Regimes",
+  "duration": 1,
+  "steps": 252,
+  "initial_price": 100,
+  "fundamental_value": 100,
+  "initial_liquidity": 1000000.0,
+  "base_volatility": 0.2,
+  "regimes": [
+    {
+      "name": "steady_growth",
+      "drift": 0.1,
+      "vol_scale": 1.0,
+      "transitions": {
+        "steady_growth": 0.7,
+        "tech_correction": 0.3
+      }
+    },
+    {
+      "name": "tech_correction",
+      "drift": -0.2,
+      "vol_scale": 0.5,
+      "transitions": {
+        "tech_correction": 0.8,
+        "steady_growth": 0.2
+      }
+    }
+  ],
+  "garch_params": [
+    0.015,
+    0.12,
+    0.82
+  ],
+  "macro_impact": {
+    "interest_rate": [
+      0.03,
+      0.01
+    ],
+    "inflation": [
+      0.02,
+      0.005
+    ]
+  },
+  "sentiment_params": [
+    0.5,
+    0.2
+  ],
+  "flash_crash_threshold": [
+    -0.2,
+    2
+  ],
+  "market_maker_power": 0.1,
+  "transaction_cost": 0.0005,
+  "jump_params": [
+    0.12,
+    -0.2,
+    0.3
+  ],
+  "mean_reversion_speed": 0.1,
+  "long_term_mean": 100,
+  "market_shock_prob": 0.02,
+  "market_shock": null,
+  "random_seed": 2025
+}

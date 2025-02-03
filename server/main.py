@@ -11,7 +11,7 @@ Relative Path: server/main.py
 
 from MarketModel.StockPriceSimulatorWithOrderBook import StockPriceSimulatorWithOrderBook
 from MarketModel.Dashboard import Dashboard
-from config import configs_nvidia
+from config import configs_test
 from MarketModel.DataLogger import save_simulation_steps_csv, save_orderbook_snapshots_csv, save_config_as_json
 import os
 
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     config_details = []
 
     # For each configuration in configs_nvidia, instantiate and run the new simulator.
-    for idx, config in enumerate(configs_nvidia, 1):
+    for idx, config in enumerate(configs_test, 1):
         name = config.get("name", f"Simulation_{idx}")
         print(f"Running simulation with order book: {name}")
 

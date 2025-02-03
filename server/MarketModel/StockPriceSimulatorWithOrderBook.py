@@ -102,27 +102,15 @@ class StockPriceSimulatorWithOrderBook(StockPriceSimulator):
                 regime_switch_idx]
             time_in_regime_switch = 0.0
 
-        # For stochastic volatility
-        v = base_volatility ** 2
-
-        def choose_model(t, current_price, liquidity):
-            if np.random.rand() < market_shock_prob:
-                return "jump_diffusion"
-            if liquidity < 0.5 * initial_liquidity:
-                return "mean_reverting"
-            if regime_switch is not None and (t % max(1, int(steps/10)) == 0):
-                return "regime_switching"
-            if steps // 3 < t < 2 * steps // 3:
-                return "stochastic_volatility"
-            return "standard"
+        # Initialize GARCH conditional variance h
+        h = (base_volatility ** 2) * dt
 
         # --- Initialize the Order Book ---
         order_book = OrderBook()
         # We'll record the order book state at each simulation step.
-        # (Each snapshot will include the best bid/ask and current orders.)
         order_book_history = []
 
-        # --- Main simulation loop (unchanged logic) ---
+        # --- Main simulation loop (unchanged logic except GARCH update) ---
         for t in range(1, steps):
             current_price = prices[-1]
             prev_price = prices[-2] if len(prices) > 1 else current_price
@@ -132,8 +120,8 @@ class StockPriceSimulatorWithOrderBook(StockPriceSimulator):
             inflation += np.random.normal(0, inflation_vol * np.sqrt(dt))
 
             # Update the fundamental value
-            new_fundamental = fundamentals[-1] * np.exp(0.02 * dt +
-                                                        0.02 * np.random.normal(0, np.sqrt(dt)))
+            new_fundamental = fundamentals[-1] * np.exp(
+                0.02 * dt + 0.02 * np.random.normal(0, np.sqrt(dt)))
             fundamentals.append(new_fundamental)
 
             deviation = (current_price - new_fundamental) / new_fundamental
@@ -147,17 +135,17 @@ class StockPriceSimulatorWithOrderBook(StockPriceSimulator):
                 r for r in regimes if r['name'] == current_regime)
 
             # Update sentiment
-            sentiment += sentiment_params[0] * (0 - sentiment) * dt + \
-                sentiment_params[1] * np.random.normal(0, np.sqrt(dt))
+            sentiment += sentiment_params[0] * (
+                0 - sentiment) * dt + sentiment_params[1] * np.random.normal(0, np.sqrt(dt))
 
             if len(prices) > 1:
                 ret = np.log(current_price / prev_price)
             else:
                 ret = 0
 
-            new_variance = garch_omega + garch_alpha * \
-                (ret ** 2) + garch_beta * (volatilities[-1] ** 2)
-            garch_vol = np.sqrt(new_variance * dt)
+            # --- GARCH volatility update ---
+            h = (garch_omega * dt) + garch_alpha * (ret ** 2) + garch_beta * h
+            garch_vol = np.sqrt(h)
             model_base_vol = garch_vol * regime_params.get('vol_scale', 1.0)
 
             volume = np.abs(ret) * liquidity * (1 + 3 * sentiment)
@@ -181,6 +169,17 @@ class StockPriceSimulatorWithOrderBook(StockPriceSimulator):
                     continue
 
             # --- Choose simulation model (unchanged) ---
+            def choose_model(t, current_price, liquidity):
+                if np.random.rand() < market_shock_prob:
+                    return "jump_diffusion"
+                if liquidity < 0.5 * initial_liquidity:
+                    return "mean_reverting"
+                if regime_switch is not None and (t % max(1, int(steps/10)) == 0):
+                    return "regime_switching"
+                if steps // 3 < t < 2 * steps // 3:
+                    return "stochastic_volatility"
+                return "standard"
+
             model = choose_model(t, current_price, liquidity)
             drift_effect = (regime_params.get('drift', 0.05) +
                             0.5 * interest_rate - 0.8 * inflation + mm_force)
@@ -193,8 +192,8 @@ class StockPriceSimulatorWithOrderBook(StockPriceSimulator):
 
             elif model == "mean_reverting":
                 dW = np.random.normal(0, np.sqrt(dt))
-                dS = (mean_reversion_speed * (long_term_mean - current_price) * dt +
-                      model_base_vol * current_price * dW)
+                dS = (mean_reversion_speed * (long_term_mean - current_price)
+                      * dt + model_base_vol * current_price * dW)
                 new_price = current_price + dS
 
             elif model == "jump_diffusion":
@@ -212,9 +211,9 @@ class StockPriceSimulatorWithOrderBook(StockPriceSimulator):
                 eta = 0.1  # volatility of volatility
                 dW1 = np.random.normal(0, np.sqrt(dt))
                 dW2 = np.random.normal(0, np.sqrt(dt))
-                dv = kappa * (theta - v) * dt + eta * np.sqrt(max(v, 0)) * dW2
-                v = max(v + dv, 1e-8)
-                shock = np.sqrt(v) * dW1 + sentiment * np.sqrt(v) / 2
+                dv = kappa * (theta - h) * dt + eta * np.sqrt(max(h, 0)) * dW2
+                h = max(h + dv, 1e-8)
+                shock = np.sqrt(h) * dW1 + sentiment * np.sqrt(h) / 2
                 new_price = current_price * np.exp(drift_effect * dt + shock)
 
             elif model == "regime_switching" and regime_switch is not None:

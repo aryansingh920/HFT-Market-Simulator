@@ -7,157 +7,229 @@ Filename: config.py
 
 Relative Path: server/config.py
 """
+# File: config.py
+# Place this in your config file (or add to your existing list) to run a test simulation.
 
-
-configs_nvidia = [
+configs_test = [
     {
         # Basic simulation settings
-        'name': 'Nvidia: Tech Giant - Innovation & Volatility',
-        'duration': 5,             # Simulation duration in years
-        'steps': 1260,             # Approx. 252 trading days per year * 5 years
-        'initial_price': 250,      # Starting stock price
-        'fundamental_value': 250,  # Fundamental value (used in mean–reversion)
-        'initial_liquidity': 1e7,  # High liquidity typical for a large-cap tech stock
-        'base_volatility': 0.3,    # Base annualized volatility
+        'name': 'Test Simulation: Mixed Regimes',
+        'duration': 1,             # Simulation duration in years
+        'steps': 252,              # One trading year (252 days)
+        'initial_price': 100,      # Starting stock price
+        'fundamental_value': 100,  # Fundamental value (kept constant here)
+        'initial_liquidity': 1e6,  # Typical liquidity for a mid–sized stock
+        'base_volatility': 0.2,    # Base annualized volatility
 
-        # Market regimes represented as a Markov chain:
-        # Each regime has a specific drift (annualized return), a volatility scaling factor,
-        # and a set of transition probabilities to other regimes.
+        # Two regimes to test switching:
         'regimes': [
             {
                 'name': 'steady_growth',
-                'drift': 0.15,       # 15% annual drift in a stable, growing market
+                'drift': 0.10,       # A modest positive drift for steady growth
                 'vol_scale': 1.0,
                 'transitions': {
-                    'steady_growth': 0.80,
-                    'innovation_boom': 0.10,
-                    'regulatory_pressure': 0.05,
-                    'tech_correction': 0.03,
-                    'market_boom': 0.02
-                }
-            },
-            {
-                'name': 'innovation_boom',
-                'drift': 0.30,       # Strong growth during major innovation breakthroughs
-                'vol_scale': 1.2,
-                'transitions': {
-                    'innovation_boom': 0.70,
-                    'steady_growth': 0.15,
-                    'market_boom': 0.10,
-                    'tech_correction': 0.05
-                }
-            },
-            {
-                'name': 'regulatory_pressure',
-                'drift': 0.05,       # Low growth due to regulatory or legal pressures
-                'vol_scale': 1.5,
-                'transitions': {
-                    'regulatory_pressure': 0.60,
-                    'steady_growth': 0.25,
-                    'tech_correction': 0.15
+                    'steady_growth': 0.7,
+                    'tech_correction': 0.3
                 }
             },
             {
                 'name': 'tech_correction',
-                'drift': -0.25,      # Negative drift during market corrections
-                'vol_scale': 0.5,
+                'drift': -0.20,      # A negative drift to represent a correction
+                'vol_scale': 0.5,    # Lower volatility scale during corrections
                 'transitions': {
-                    'tech_correction': 0.75,
-                    'steady_growth': 0.20,
-                    'innovation_boom': 0.05
-                }
-            },
-            {
-                'name': 'market_boom',
-                'drift': 0.40,       # Exuberant market environment with high valuations
-                'vol_scale': 22.1,
-                'transitions': {
-                    'market_boom': 0.80,
-                    'steady_growth': 0.15,
-                    'innovation_boom': 0.05
-                }
-            },
-            {
-                'name': 'crash',
-                # Severe downturn (e.g., during a tech bubble burst)
-                'drift': 10.50,
-                'vol_scale': 2.0,
-                'transitions': {
-                    'crash': 0.90,
-                    'recovery': 0.10
-                }
-            },
-            {
-                'name': 'recovery',
-                'drift': 40.20,       # Recovery phase following a crash
-                'vol_scale': 5.3,
-                'transitions': {
-                    'recovery': 5.85,
-                    'steady_growth': 100.15
+                    'tech_correction': 0.8,
+                    'steady_growth': 0.2
                 }
             }
         ],
 
-        # GARCH parameters (omega, alpha, beta) for updating variance
+        # GARCH parameters (omega, alpha, beta)
         'garch_params': (0.015, 0.12, 0.82),
 
-        # Macro-economic factors affecting the drift:
-        # Each is defined as a tuple: (base value, volatility)
+        # Macro-economic factors
         'macro_impact': {
             'interest_rate': (0.03, 0.01),
             'inflation': (0.02, 0.005)
         },
 
-        # Sentiment parameters: (mean reversion speed, volatility of sentiment shocks)
+        # Sentiment parameters
         'sentiment_params': (0.5, 0.2),
 
-        # Flash crash settings: (price drop threshold, liquidity threshold)
+        # Flash crash settings
         'flash_crash_threshold': (-0.2, 2),
 
-        # Market maker influence (affects how liquidity impacts price)
+        # Market maker influence
         'market_maker_power': 0.1,
 
-        # Transaction cost applied to trades (affects effective price)
+        # Transaction cost applied to trades
         'transaction_cost': 0.0005,
 
-        # Jump diffusion parameters: (intensity, mean jump size, jump standard deviation)
+        # Jump diffusion parameters (intensity, mean jump size, jump standard deviation)
         'jump_params': (0.12, -0.2, 0.3),
 
         # Mean reversion parameters for alternative price dynamics
         'mean_reversion_speed': 0.1,
-        'long_term_mean': 250,
+        'long_term_mean': 100,
 
-        # Probability of a market shock event and shock type (e.g., bullish, bearish)
+        # Probability of a market shock event
         'market_shock_prob': 0.02,
         'market_shock': None,
-
-        # Advanced simulation parameters for the AdvancedStockSimulator
-        'sentiment_seed': 0.2,
-        'news_flow_intensity': 0.1,
-        'seasonality_params': {
-            # Example day-of-week multipliers
-            'day_of_week': [1.0, 0.98, 1.02, 1.01, 0.99]
-        },
-        'heston_params': {
-            'kappa': 1.2,    # Speed of mean reversion for volatility
-            'theta': 0.04,   # Long-term variance
-            'eta': 0.2       # Volatility of volatility
-        },
-        'refined_jump_params': {
-            'intensity': 0.05,  # Intensity of additional jump events
-            'df': 3             # Degrees of freedom for the t-distribution jump model
-        },
-
-        # Optional external regime switching events (list of tuples: (mu, sigma, duration))
-        'regime_switch': [
-            (0.0, 0.05, 0.5),
-            (0.05, 0.1, 0.25)
-        ],
 
         # Random seed for reproducibility
         'random_seed': 2025
     }
 ]
+
+
+# configs_nvidia = [
+#     {
+#         # Basic simulation settings
+#         'name': 'Nvidia: Tech Giant - Innovation & Volatility',
+#         'duration': 5,             # Simulation duration in years
+#         'steps': 1260,             # Approx. 252 trading days per year * 5 years
+#         'initial_price': 250,      # Starting stock price
+#         'fundamental_value': 250,  # Fundamental value (used in mean–reversion)
+#         'initial_liquidity': 1e7,  # High liquidity typical for a large-cap tech stock
+#         'base_volatility': 0.3,    # Base annualized volatility
+
+#         # Market regimes represented as a Markov chain:
+#         # Each regime has a specific drift (annualized return), a volatility scaling factor,
+#         # and a set of transition probabilities to other regimes.
+#         'regimes': [
+#             {
+#                 'name': 'steady_growth',
+#                 'drift': 0.15,       # 15% annual drift in a stable, growing market
+#                 'vol_scale': 1.0,
+#                 'transitions': {
+#                     'steady_growth': 0.80,
+#                     'innovation_boom': 0.10,
+#                     'regulatory_pressure': 0.05,
+#                     'tech_correction': 0.03,
+#                     'market_boom': 0.02
+#                 }
+#             },
+#             {
+#                 'name': 'innovation_boom',
+#                 'drift': 0.30,       # Strong growth during major innovation breakthroughs
+#                 'vol_scale': 1.2,
+#                 'transitions': {
+#                     'innovation_boom': 0.70,
+#                     'steady_growth': 0.15,
+#                     'market_boom': 0.10,
+#                     'tech_correction': 0.05
+#                 }
+#             },
+#             {
+#                 'name': 'regulatory_pressure',
+#                 'drift': 0.05,       # Low growth due to regulatory or legal pressures
+#                 'vol_scale': 1.5,
+#                 'transitions': {
+#                     'regulatory_pressure': 0.60,
+#                     'steady_growth': 0.25,
+#                     'tech_correction': 0.15
+#                 }
+#             },
+#             {
+#                 'name': 'tech_correction',
+#                 'drift': -0.25,      # Negative drift during market corrections
+#                 'vol_scale': 0.5,
+#                 'transitions': {
+#                     'tech_correction': 0.75,
+#                     'steady_growth': 0.20,
+#                     'innovation_boom': 0.05
+#                 }
+#             },
+#             {
+#                 'name': 'market_boom',
+#                 'drift': 0.40,       # Exuberant market environment with high valuations
+#                 'vol_scale': 22.1,
+#                 'transitions': {
+#                     'market_boom': 0.80,
+#                     'steady_growth': 0.15,
+#                     'innovation_boom': 0.05
+#                 }
+#             },
+#             {
+#                 'name': 'crash',
+#                 # Severe downturn (e.g., during a tech bubble burst)
+#                 'drift': 10.50,
+#                 'vol_scale': 2.0,
+#                 'transitions': {
+#                     'crash': 0.90,
+#                     'recovery': 0.10
+#                 }
+#             },
+#             {
+#                 'name': 'recovery',
+#                 'drift': 40.20,       # Recovery phase following a crash
+#                 'vol_scale': 5.3,
+#                 'transitions': {
+#                     'recovery': 5.85,
+#                     'steady_growth': 100.15
+#                 }
+#             }
+#         ],
+
+#         # GARCH parameters (omega, alpha, beta) for updating variance
+#         'garch_params': (0.015, 0.12, 0.82),
+
+#         # Macro-economic factors affecting the drift:
+#         # Each is defined as a tuple: (base value, volatility)
+#         'macro_impact': {
+#             'interest_rate': (0.03, 0.01),
+#             'inflation': (0.02, 0.005)
+#         },
+
+#         # Sentiment parameters: (mean reversion speed, volatility of sentiment shocks)
+#         'sentiment_params': (0.5, 0.2),
+
+#         # Flash crash settings: (price drop threshold, liquidity threshold)
+#         'flash_crash_threshold': (-0.2, 2),
+
+#         # Market maker influence (affects how liquidity impacts price)
+#         'market_maker_power': 0.1,
+
+#         # Transaction cost applied to trades (affects effective price)
+#         'transaction_cost': 0.0005,
+
+#         # Jump diffusion parameters: (intensity, mean jump size, jump standard deviation)
+#         'jump_params': (0.12, -0.2, 0.3),
+
+#         # Mean reversion parameters for alternative price dynamics
+#         'mean_reversion_speed': 0.1,
+#         'long_term_mean': 250,
+
+#         # Probability of a market shock event and shock type (e.g., bullish, bearish)
+#         'market_shock_prob': 0.02,
+#         'market_shock': None,
+
+#         # Advanced simulation parameters for the AdvancedStockSimulator
+#         'sentiment_seed': 0.2,
+#         'news_flow_intensity': 0.1,
+#         'seasonality_params': {
+#             # Example day-of-week multipliers
+#             'day_of_week': [1.0, 0.98, 1.02, 1.01, 0.99]
+#         },
+#         'heston_params': {
+#             'kappa': 1.2,    # Speed of mean reversion for volatility
+#             'theta': 0.04,   # Long-term variance
+#             'eta': 0.2       # Volatility of volatility
+#         },
+#         'refined_jump_params': {
+#             'intensity': 0.05,  # Intensity of additional jump events
+#             'df': 3             # Degrees of freedom for the t-distribution jump model
+#         },
+
+#         # Optional external regime switching events (list of tuples: (mu, sigma, duration))
+#         'regime_switch': [
+#             (0.0, 0.05, 0.5),
+#             (0.05, 0.1, 0.25)
+#         ],
+
+#         # Random seed for reproducibility
+#         'random_seed': 2025
+#     }
+# ]
 
 
 # configs_historical = [
