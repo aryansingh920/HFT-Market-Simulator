@@ -9,8 +9,8 @@ Relative Path: server/MarketModel/StockPriceSimulatorWithOrderBook.py
 """
 import numpy as np
 
-from MarketModel import StockPriceSimulator
-from MarketModel import OrderBook
+from MarketModel.StockPriceSimulator import StockPriceSimulator
+from MarketModel.OrderBook import OrderBook
 
 
 class StockPriceSimulatorWithOrderBook(StockPriceSimulator):

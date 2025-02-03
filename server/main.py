@@ -7,30 +7,34 @@ Filename: dynamic_regime_shift.py
 Relative Path: server/dynamic_regime_shift.py
 """
 
-import numpy as np
-import json  # For pretty–printing config details
-import dash
-from dash import dcc, html
-import plotly.graph_objs as go
-
-# Import all simulation configurations from config.py
+from MarketModel.StockPriceSimulatorWithOrderBook import StockPriceSimulatorWithOrderBook
+from MarketModel.Dashboard import Dashboard
 from config import configs_nvidia
-from MarketModel import Dashboard, MarketSimulator
-from dash import Dash
-
+from MarketModel.DataLogger import save_simulation_data_to_csv
+import numpy as np
 
 if __name__ == "__main__":
-    # 1) Run the historical configs
-    historical_simulator = MarketSimulator.MarketSimulator(configs_nvidia)
-    historical_simulator.run_simulations()
-    # These are your historical results, config details, and names
-    hist_results = historical_simulator.results
-    hist_config_names = historical_simulator.config_names
-    hist_config_details = historical_simulator.config_details
+    results = []
+    config_names = []
+    config_details = []
 
-    combined_dashboard = Dashboard.Dashboard(
-        hist_results, hist_config_names, hist_config_details)
-    combined_dashboard.run()
+    for idx, config in enumerate(configs_nvidia, 1):
+        name = config.get("name", f"Simulation #{idx}")
+        print(f"Running simulation with order book: {name}")
+        simulator = StockPriceSimulatorWithOrderBook(**config)
+        result = simulator.simulate()
+        results.append(result)
+        config_names.append(name)
+        config_details.append(config)
+
+        # Save each simulation’s data to a CSV file (you might want to name them differently).
+        csv_filename = f"simulation_data_{idx}.csv"
+        save_simulation_data_to_csv(result, config, csv_filename)
+        print(f"Saved simulation data to {csv_filename}")
+
+    # Optionally, launch the dashboard with the results.
+    dashboard = Dashboard(results, config_names, config_details)
+    dashboard.run()
 
 
 # ============================================================================
