@@ -10,31 +10,46 @@ Relative Path: server/dynamic_regime_shift.py
 from MarketModel.StockPriceSimulatorWithOrderBook import StockPriceSimulatorWithOrderBook
 from MarketModel.Dashboard import Dashboard
 from config import configs_nvidia
-from MarketModel.DataLogger import save_simulation_data_to_csv
-import numpy as np
+from MarketModel.DataLogger import save_simulation_steps_csv, save_orderbook_snapshots_csv, save_config_as_json
+import os
 
 if __name__ == "__main__":
     results = []
     config_names = []
     config_details = []
 
+    # For each configuration in configs_nvidia, instantiate and run the new simulator.
     for idx, config in enumerate(configs_nvidia, 1):
-        name = config.get("name", f"Simulation #{idx}")
+        name = config.get("name", f"Simulation_{idx}")
         print(f"Running simulation with order book: {name}")
+
         simulator = StockPriceSimulatorWithOrderBook(**config)
         result = simulator.simulate()
         results.append(result)
         config_names.append(name)
         config_details.append(config)
 
-        # Save each simulation’s data to a CSV file (you might want to name them differently).
-        csv_filename = f"simulation_data_{idx}.csv"
-        save_simulation_data_to_csv(result, config, csv_filename)
-        print(f"Saved simulation data to {csv_filename}")
+        # Create an output folder if needed
+        output_folder = "simulation_output"
+        os.makedirs(output_folder, exist_ok=True)
 
-    # Optionally, launch the dashboard with the results.
+        # Save simulation step data
+        steps_filename = os.path.join(output_folder, f"{name}_steps.csv")
+        save_simulation_steps_csv(result, steps_filename)
+
+        # Save order book snapshots
+        orderbook_filename = os.path.join(
+            output_folder, f"{name}_orderbook.csv")
+        save_orderbook_snapshots_csv(result, orderbook_filename)
+
+        # Optionally, save the configuration once per simulation.
+        config_filename = os.path.join(output_folder, f"{name}_config.json")
+        save_config_as_json(config, config_filename)
+
+    # Optionally, launch the dashboard to visualize the simulation.
     dashboard = Dashboard(results, config_names, config_details)
     dashboard.run()
+
 
 
 # ============================================================================
