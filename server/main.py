@@ -1,82 +1,110 @@
 """
-Created on 19/01/2025
+Created on 01/02/2025
 
 @author: Aryan
 
-Filename: main.py
-
-Relative Path: server/main.py
+Filename: dynamic_regime_shift.py
+Relative Path: server/dynamic_regime_shift.py
 """
 
-import time
-import asyncio
-import threading
-import websockets
-import argparse
+import numpy as np
+import json  # For pretty–printing config details
+import dash
+from dash import dcc, html
+import plotly.graph_objs as go
 
-from Market.MarketSimulator import MarketSimulator
-from Market.dynamic_config import build_simulation_config
-from Market.WebSocketManager import handle_client, global_event_loop, set_simulation_callback
-
-
-def run_websocket_server(port):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    global global_event_loop
-    global_event_loop = loop
-
-    async def start_server():
-        return await websockets.serve(handle_client, "0.0.0.0", port)
-
-    server = loop.run_until_complete(start_server())
-    print(
-        f"[Main] WebSocket server started on ws://0.0.0.0:{port}, waiting for connections...")
-
-    try:
-        loop.run_forever()
-    finally:
-        server.close()
-        loop.run_until_complete(server.wait_closed())
-        loop.close()
+# Import all simulation configurations from config.py
+from config import configs_nvidia
+from MarketModel import Dashboard, MarketSimulator
+from dash import Dash
 
 
+# ============================================================================
+# Example usage
+# ============================================================================
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Run the WebSocket server and HFT simulator.")
-    parser.add_argument("--port", type=int, default=8765,
-                        help="Port for the WebSocket server (default: 8765)")
-    args = parser.parse_args()
+    # 1) Run the historical configs
+    historical_simulator = MarketSimulator.MarketSimulator(configs_nvidia)
+    historical_simulator.run_simulations()
+    # These are your historical results, config details, and names
+    hist_results = historical_simulator.results
+    hist_config_names = historical_simulator.config_names
+    hist_config_details = historical_simulator.config_details
 
-    # Pass the port as a tuple
-    ws_thread = threading.Thread(
-        target=run_websocket_server, args=(args.port,), daemon=True)
-    ws_thread.start()
+    # 2) Run the advanced single-stock simulation
+    # advanced_config = {
+    #     "name": "Advanced Single Stock",
+    #     "duration": 1,
+    #     "steps": 252,
+    #     "initial_price": 100,
+    #     "fundamental_value": 100,
+    #     "initial_liquidity": 1e6,
+    #     "base_volatility": 0.2,
+    #     "transaction_cost": 0.0005,
+    #     "sentiment_seed": 0.1,
+    #     "news_flow_intensity": 0.1,
+    #     "seasonality_params": {"day_of_week": [1.0, 1.02, 0.98, 1.03, 0.97]},
+    #     "heston_params": {"kappa": 1.2, "theta": 0.04, "eta": 0.15},
+    #     "refined_jump_params": {"intensity": 0.05, "df": 3},
+    #     # ... other advanced parameters
+    # }
+    # advanced_sim = AdvancedStockSimulator(advanced_config)
+    # advanced_result = advanced_sim.simulate()
 
-    while global_event_loop is None:
-        time.sleep(0.1)
+    # We'll store it in a list so we can unify it with the others
+    # advanced_results_list = [advanced_result]
+    # advanced_config_names = [advanced_config["name"]]
+    # advanced_config_details = [advanced_config]
 
-    simulation_config = build_simulation_config(
-        sim_name="MyDynamicHFTSimulation", duration_mins=1.0
-    )
-    # Pass the global event loop to MarketSimulator
-    simulator = MarketSimulator(
-        config=simulation_config, loop=global_event_loop
-    )
+    # 3) Run the multi-asset simulation
+    # multi_asset_configs = [
+    #     {
+    #         "name": "Stock A",
+    #         "duration": 1,
+    #         "steps": 252,
+    #         "initial_price": 100,
+    #         "fundamental_value": 100,
+    #         "initial_liquidity": 1e6,
+    #         "base_volatility": 0.2,
+    #         "transaction_cost": 0.0005,
+    #     },
+    #     {
+    #         "name": "Stock B",
+    #         "duration": 1,
+    #         "steps": 252,
+    #         "initial_price": 150,
+    #         "fundamental_value": 150,
+    #         "initial_liquidity": 1e6,
+    #         "base_volatility": 0.25,
+    #         "transaction_cost": 0.0007,
+    #     }
+    # ]
+    # correlation_matrix = [
+    #     [1.0, 0.7],
+    #     [0.7, 1.0]
+    # ]
+    # multi_asset_sim = MultiAssetSimulator(
+    #     multi_asset_configs, correlation_matrix)
+    # multi_asset_results = multi_asset_sim.simulate()
+    # `multi_asset_results` is a list of dicts (one result per stock)
 
-    async def run_simulation():
-        print("[Main] Running simulation...")
-        # Run the synchronous simulation in a separate thread
-        loop = asyncio.get_event_loop()
-        # Adjust steps as needed
-        steps = 100
-        await loop.run_in_executor(None, simulator.run, steps)
-        print("[Main] Simulation finished.")
+    # We'll build parallel lists for the multi-asset run:
+    # ma_results_list = []
+    # ma_names = []
+    # ma_details = []
+    # for cfg, res in zip(multi_asset_configs, multi_asset_results):
+    # ma_results_list.append(res)
+    # ma_names.append(cfg["name"])  # "Stock A", "Stock B"
+    # ma_details.append(cfg)
 
-    set_simulation_callback(run_simulation)
+    # 4) Combine everything into one set of lists
+    # all_results = hist_results + advanced_results_list + ma_results_list
+    # all_names = hist_config_names + advanced_config_names + ma_names
+    # all_details = hist_config_details + advanced_config_details + ma_details
 
-    print("[Main] Simulation callback set. Waiting for commands...")
+    # 5) Launch ONE dashboard with everything
 
-    while True:
-        # Keep the main thread alive or perform other tasks here
-        time.sleep(1)
+    # combined_dashboard = Dashboard(all_results, all_names, all_details)
+    combined_dashboard = Dashboard.Dashboard(
+        hist_results, hist_config_names, hist_config_details)
+    combined_dashboard.run()
