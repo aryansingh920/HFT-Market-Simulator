@@ -11,76 +11,89 @@ Relative Path: server/config.py
 # Place this in your config file (or add to your existing list) to run a test simulation.
 
 
+import numpy as np
+
+# Set the number of steps per day
+steps_per_day = 1  # Modify this for different granularity
+
 configs_test = [
     {
-        # Basic simulation settings
         'name': 'Test: Low Volatility Early, Steep Growth Late',
-        'duration': 1,            # Simulation duration in years
-        'steps': 252,             # One trading year (252 days)
-        'initial_price': 100,     # Starting stock price
-        'fundamental_value': 100,  # Fundamental value (kept constant)
-        'initial_liquidity': 1e6,  # High liquidity for stable movement
-        'base_volatility': 0.1,   # Low base volatility
+        'duration': 1,               # 1 year
+        'steps': 252 * steps_per_day,  # Multiple updates per day
+        'initial_price': 100,
+        'fundamental_value': 100,
+        'initial_liquidity': 1e6,
+        'base_volatility': 0.1,
 
-        # Regimes setup:
-        'regimes': [
-            {
-                'name': 'stable_random_walk',
-                # Small positive drift (near zero for randomness)
-                'drift': 0.01,
-                'vol_scale': 0.4,   # Low volatility
-                'transitions': {
-                    'stable_random_walk': 0.85,  # Stays in this state 85% of the time
-                    'bullish_breakout': 0.05   # 15% chance of entering steep growth
-                }
-            },
-            {
-                'name': 'bullish_breakout',
-                'drift': 0.50,      # Strong upward drift for steep growth
-                'vol_scale': 1.5,   # High volatility for rapid movement
-                'transitions': {
-                    'bullish_breakout': 0.95,  # Once in, stays in 95% of the time
-                    'stable_random_walk': 0.05  # Small chance of returning
-                }
-            }
-        ],
+        # Regimes setup (original per-day transition probabilities)
+        'original_transitions': {
+            'stable_random_walk': {'stable_random_walk': 0.85, 'bullish_breakout': 0.15},
+            'bullish_breakout': {'bullish_breakout': 0.95, 'stable_random_walk': 0.05}
+        },
 
-        # GARCH parameters for controlled volatility
+        # GARCH parameters
         'garch_params': (0.005, 0.08, 0.85),
 
-        # Macro-economic factors (not dominant here)
+        # Macro factors
         'macro_impact': {
             'interest_rate': (0.03, 0.005),
             'inflation': (0.02, 0.002)
         },
 
-        # Sentiment model (minor effect in early regime, stronger in bullish surge)
+        # Sentiment model
         'sentiment_params': (0.3, 0.1),
 
-        # Flash crash settings (not dominant here)
+        # Flash crash settings
         'flash_crash_threshold': (-0.15, 2),
 
         # Market maker influence
         'market_maker_power': 0.1,
 
-        # Transaction cost applied to trades
+        # Transaction cost
         'transaction_cost': 0.0005,
 
-        # Jump diffusion parameters (random jumps, but not too frequent)
+        # Jump diffusion parameters
         'jump_params': (0.05, 0.02, 0.1),
 
-        # Mean reversion to maintain structure
+        # Mean reversion
         'mean_reversion_speed': 0.1,
         'long_term_mean': 100,
 
-        # Probability of a market shock event (low probability)
+        # Market shock probability
         'market_shock_prob': 0.01,
         'market_shock': None,
 
-        # Ensure a strong surge towards the end
+        # Random seed for reproducibility
         'random_seed': 2025
     }
 ]
+
+# Function to adjust transition probabilities for multi-step days
+
+
+def adjust_transition_probabilities(config, steps_per_day):
+    adjusted_regimes = []
+    for regime in config['original_transitions']:
+        transitions = config['original_transitions'][regime]
+        adjusted_transitions = {}
+
+        for target, prob_per_day in transitions.items():
+            # Adjust probability for per-step transition using p^(1/n)
+            prob_per_step = prob_per_day ** (1 / steps_per_day)
+            adjusted_transitions[target] = round(
+                prob_per_step, 6)  # Round for stability
+
+        adjusted_regimes.append({'name': regime, 'drift': 0.01 if regime == 'stable_random_walk' else 0.50,
+                                 'vol_scale': 0.4 if regime == 'stable_random_walk' else 1.5,
+                                 'transitions': adjusted_transitions})
+
+    config['regimes'] = adjusted_regimes
+
+
+# Apply the adjustment
+adjust_transition_probabilities(configs_test[0], steps_per_day)
+
 
 
 # configs_test = [
