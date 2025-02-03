@@ -1,0 +1,64 @@
+{
+  "name": "Test: Low Volatility Early, Steep Growth Late",
+  "duration": 1,
+  "steps": 252,
+  "initial_price": 100,
+  "fundamental_value": 100,
+  "initial_liquidity": 1000000.0,
+  "base_volatility": 0.1,
+  "regimes": [
+    {
+      "name": "stable_random_walk",
+      "drift": 0.01,
+      "vol_scale": 0.4,
+      "transitions": {
+        "stable_random_walk": 0.85,
+        "bullish_breakout": 0.05
+      }
+    },
+    {
+      "name": "bullish_breakout",
+      "drift": 0.5,
+      "vol_scale": 1.5,
+      "transitions": {
+        "bullish_breakout": 0.95,
+        "stable_random_walk": 0.05
+      }
+    }
+  ],
+  "garch_params": [
+    0.005,
+    0.08,
+    0.85
+  ],
+  "macro_impact": {
+    "interest_rate": [
+      0.03,
+      0.005
+    ],
+    "inflation": [
+      0.02,
+      0.002
+    ]
+  },
+  "sentiment_params": [
+    0.3,
+    0.1
+  ],
+  "flash_crash_threshold": [
+    -0.15,
+    2
+  ],
+  "market_maker_power": 0.1,
+  "transaction_cost": 0.0005,
+  "jump_params": [
+    0.05,
+    0.02,
+    0.1
+  ],
+  "mean_reversion_speed": 0.1,
+  "long_term_mean": 100,
+  "market_shock_prob": 0.01,
+  "market_shock": null,
+  "random_seed": 2025
+}

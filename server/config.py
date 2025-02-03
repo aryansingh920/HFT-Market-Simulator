@@ -10,53 +10,55 @@ Relative Path: server/config.py
 # File: config.py
 # Place this in your config file (or add to your existing list) to run a test simulation.
 
+
 configs_test = [
     {
         # Basic simulation settings
-        'name': 'Test Simulation: Mixed Regimes',
-        'duration': 1,             # Simulation duration in years
-        'steps': 252,              # One trading year (252 days)
-        'initial_price': 100,      # Starting stock price
-        'fundamental_value': 100,  # Fundamental value (kept constant here)
-        'initial_liquidity': 1e6,  # Typical liquidity for a mid–sized stock
-        'base_volatility': 0.2,    # Base annualized volatility
+        'name': 'Test: Low Volatility Early, Steep Growth Late',
+        'duration': 1,            # Simulation duration in years
+        'steps': 252,             # One trading year (252 days)
+        'initial_price': 100,     # Starting stock price
+        'fundamental_value': 100,  # Fundamental value (kept constant)
+        'initial_liquidity': 1e6,  # High liquidity for stable movement
+        'base_volatility': 0.1,   # Low base volatility
 
-        # Two regimes to test switching:
+        # Regimes setup:
         'regimes': [
             {
-                'name': 'steady_growth',
-                'drift': 0.10,       # A modest positive drift for steady growth
-                'vol_scale': 1.0,
+                'name': 'stable_random_walk',
+                # Small positive drift (near zero for randomness)
+                'drift': 0.01,
+                'vol_scale': 0.4,   # Low volatility
                 'transitions': {
-                    'steady_growth': 0.7,
-                    'tech_correction': 0.3
+                    'stable_random_walk': 0.85,  # Stays in this state 85% of the time
+                    'bullish_breakout': 0.05   # 15% chance of entering steep growth
                 }
             },
             {
-                'name': 'tech_correction',
-                'drift': -0.20,      # A negative drift to represent a correction
-                'vol_scale': 0.5,    # Lower volatility scale during corrections
+                'name': 'bullish_breakout',
+                'drift': 0.50,      # Strong upward drift for steep growth
+                'vol_scale': 1.5,   # High volatility for rapid movement
                 'transitions': {
-                    'tech_correction': 0.8,
-                    'steady_growth': 0.2
+                    'bullish_breakout': 0.95,  # Once in, stays in 95% of the time
+                    'stable_random_walk': 0.05  # Small chance of returning
                 }
             }
         ],
 
-        # GARCH parameters (omega, alpha, beta)
-        'garch_params': (0.015, 0.12, 0.82),
+        # GARCH parameters for controlled volatility
+        'garch_params': (0.005, 0.08, 0.85),
 
-        # Macro-economic factors
+        # Macro-economic factors (not dominant here)
         'macro_impact': {
-            'interest_rate': (0.03, 0.01),
-            'inflation': (0.02, 0.005)
+            'interest_rate': (0.03, 0.005),
+            'inflation': (0.02, 0.002)
         },
 
-        # Sentiment parameters
-        'sentiment_params': (0.5, 0.2),
+        # Sentiment model (minor effect in early regime, stronger in bullish surge)
+        'sentiment_params': (0.3, 0.1),
 
-        # Flash crash settings
-        'flash_crash_threshold': (-0.2, 2),
+        # Flash crash settings (not dominant here)
+        'flash_crash_threshold': (-0.15, 2),
 
         # Market maker influence
         'market_maker_power': 0.1,
@@ -64,21 +66,92 @@ configs_test = [
         # Transaction cost applied to trades
         'transaction_cost': 0.0005,
 
-        # Jump diffusion parameters (intensity, mean jump size, jump standard deviation)
-        'jump_params': (0.12, -0.2, 0.3),
+        # Jump diffusion parameters (random jumps, but not too frequent)
+        'jump_params': (0.05, 0.02, 0.1),
 
-        # Mean reversion parameters for alternative price dynamics
+        # Mean reversion to maintain structure
         'mean_reversion_speed': 0.1,
         'long_term_mean': 100,
 
-        # Probability of a market shock event
-        'market_shock_prob': 0.02,
+        # Probability of a market shock event (low probability)
+        'market_shock_prob': 0.01,
         'market_shock': None,
 
-        # Random seed for reproducibility
+        # Ensure a strong surge towards the end
         'random_seed': 2025
     }
 ]
+
+
+# configs_test = [
+#     {
+#         # Basic simulation settings
+#         'name': 'Test Simulation: Mixed Regimes',
+#         'duration': 1,             # Simulation duration in years
+#         'steps': 252,              # One trading year (252 days)
+#         'initial_price': 100,      # Starting stock price
+#         'fundamental_value': 100,  # Fundamental value (kept constant here)
+#         'initial_liquidity': 1e6,  # Typical liquidity for a mid–sized stock
+#         'base_volatility': 0.2,    # Base annualized volatility
+
+#         # Two regimes to test switching:
+#         'regimes': [
+#             {
+#                 'name': 'steady_growth',
+#                 'drift': 0.10,       # A modest positive drift for steady growth
+#                 'vol_scale': 1.0,
+#                 'transitions': {
+#                     'steady_growth': 0.7,
+#                     'tech_correction': 0.3
+#                 }
+#             },
+#             {
+#                 'name': 'tech_correction',
+#                 'drift': -0.20,      # A negative drift to represent a correction
+#                 'vol_scale': 0.5,    # Lower volatility scale during corrections
+#                 'transitions': {
+#                     'tech_correction': 0.8,
+#                     'steady_growth': 0.2
+#                 }
+#             }
+#         ],
+
+#         # GARCH parameters (omega, alpha, beta)
+#         'garch_params': (0.015, 0.12, 0.82),
+
+#         # Macro-economic factors
+#         'macro_impact': {
+#             'interest_rate': (0.03, 0.01),
+#             'inflation': (0.02, 0.005)
+#         },
+
+#         # Sentiment parameters
+#         'sentiment_params': (0.5, 0.2),
+
+#         # Flash crash settings
+#         'flash_crash_threshold': (-0.2, 2),
+
+#         # Market maker influence
+#         'market_maker_power': 0.1,
+
+#         # Transaction cost applied to trades
+#         'transaction_cost': 0.0005,
+
+#         # Jump diffusion parameters (intensity, mean jump size, jump standard deviation)
+#         'jump_params': (0.12, -0.2, 0.3),
+
+#         # Mean reversion parameters for alternative price dynamics
+#         'mean_reversion_speed': 0.1,
+#         'long_term_mean': 100,
+
+#         # Probability of a market shock event
+#         'market_shock_prob': 0.02,
+#         'market_shock': None,
+
+#         # Random seed for reproducibility
+#         'random_seed': 2025
+#     }
+# ]
 
 
 # configs_nvidia = [
