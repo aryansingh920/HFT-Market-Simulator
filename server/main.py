@@ -1,11 +1,13 @@
 """
-Created on 01/02/2025
+Created on 03/02/2025
 
 @author: Aryan
 
-Filename: dynamic_regime_shift.py
-Relative Path: server/dynamic_regime_shift.py
+Filename: main.py
+
+Relative Path: server/main.py
 """
+
 
 from MarketModel.StockPriceSimulatorWithOrderBook import StockPriceSimulatorWithOrderBook
 from MarketModel.Dashboard import Dashboard

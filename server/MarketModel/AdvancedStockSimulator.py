@@ -1,6 +1,13 @@
-# ============================================================================
-# Advanced Single Stock Simulator with Additional Features
-# ============================================================================
+"""
+Created on 03/02/2025
+
+@author: Aryan
+
+Filename: AdvancedStockSimulator.py
+
+Relative Path: server/MarketModel/AdvancedStockSimulator.py
+"""
+
 import numpy as np
 from MarketModel import StockPriceSimulator
 
