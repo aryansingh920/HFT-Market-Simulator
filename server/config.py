@@ -69,6 +69,69 @@ configs_test = [
     }
 ]
 
+configs_pure_gbm = [
+    {
+        'name': 'PureGBMTest',
+        'duration': 1,             # 1 year
+        'steps': 252,              # ~1 step per trading day
+        'initial_price': 100,      # Starting stock price
+        'fundamental_value': 100,  # Not used (just fixed)
+        'initial_liquidity': 1e6,  # High liquidity (won’t matter much here)
+
+        # We choose 20% annual volatility as “base_volatility”
+        'base_volatility': 0.2,
+
+        # GARCH parameters set to (0, 0, 1) => keeps volatility constant
+        # Explanation: h_{t+1} = 0 + 0*return^2 + 1*h_t = h_t
+        # so h never changes from its initial.
+        'garch_params': (0.0, 0.0, 1.0),
+
+        # Turn off all macro factors by setting them to zero and zero volatility
+        'macro_impact': {
+            'interest_rate': (0.0, 0.0),
+            'inflation': (0.0, 0.0)
+        },
+
+        # Turn off sentiment
+        'sentiment_params': (0.0, 0.0),
+
+        # Disable flash crash by giving an impossible threshold
+        'flash_crash_threshold': (-999, 999),
+
+        # Disable market–maker effect
+        'market_maker_power': 0.0,
+
+        # No transaction cost, purely for clarity
+        'transaction_cost': 0.0,
+
+        # Turn off jump diffusion
+        'jump_params': (0.0, 0.0, 0.0),
+
+        # Disable mean reversion
+        'mean_reversion_speed': 0.0,
+        'long_term_mean': 100,
+
+        # No market shocks
+        'market_shock_prob': 0.0,
+        'market_shock': None,
+
+        # Single regime, no transitions => standard drift
+        'regimes': [
+            {
+                'name': 'normal',
+                'drift': 0.07,        # 7% annual drift
+                'vol_scale': 1.0,
+                'transitions': {
+                    'normal': 1.0
+                }
+            }
+        ],
+
+        # Seed for reproducibility
+        # 'random_seed': 2025
+    }
+]
+
 # Function to adjust transition probabilities for multi-step days
 
 
