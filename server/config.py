@@ -1,70 +1,53 @@
 """
-Created on 03/02/2025
-
-@author: Aryan
-
-Filename: config.py
-
-Relative Path: server/config.py
+Market Simulation Configuration File
+Updated with proper regime transition scaling
 """
-# File: config.py
-# Place this in your config file (or add to your existing list) to run a test simulation.
-
 
 import numpy as np
 
-# Set the number of steps per day
-steps_per_day = 1  # Modify this for different granularity
+# Global simulation parameters
+steps_per_day = 10_000000  # Default value, can be modified as needed
 
 configs_test = [
     {
-        'name': 'Test: Low Volatility Early, Steep Growth Late',
+        'name': 'Complex Regime Example',
         'duration': 1,               # 1 year
-        'steps': 252 * steps_per_day,  # Multiple updates per day
+        'steps': 252 * steps_per_day,
         'initial_price': 100,
         'fundamental_value': 100,
         'initial_liquidity': 1e6,
-        'base_volatility': 0.1,
+        'base_volatility': 0.2,
 
-        # Regimes setup (original per-day transition probabilities)
+        # Original daily transition probabilities
         'original_transitions': {
-            'stable_random_walk': {'stable_random_walk': 0.85, 'bullish_breakout': 0.15},
-            'bullish_breakout': {'bullish_breakout': 0.95, 'stable_random_walk': 0.05}
+            'pre_crisis': {'pre_crisis': 0.85, 'collapse': 0.15},
+            'collapse': {'collapse': 0.7, 'rebound': 0.3},
+            'rebound': {'rebound': 0.6, 'collapse': 0.1, 'post_crisis': 0.3},
+            'post_crisis': {'post_crisis': 1.0}
         },
 
-        # GARCH parameters
-        'garch_params': (0.005, 0.08, 0.85),
+        # Base regime parameters (without transitions)
+        'regimes': [
+            {'name': 'pre_crisis', 'drift': 0.05, 'vol_scale': 1.0},
+            {'name': 'collapse', 'drift': -0.5, 'vol_scale': 3.5},
+            {'name': 'rebound', 'drift': 0.15, 'vol_scale': 2.0},
+            {'name': 'post_crisis', 'drift': 0.08, 'vol_scale': 1.2}
+        ],
 
-        # Macro factors
+        # Other parameters
+        'garch_params': (0.005, 0.08, 0.85),
         'macro_impact': {
             'interest_rate': (0.03, 0.005),
             'inflation': (0.02, 0.002)
         },
-
-        # Sentiment model
         'sentiment_params': (0.3, 0.1),
-
-        # Flash crash settings
         'flash_crash_threshold': (-0.15, 2),
-
-        # Market maker influence
         'market_maker_power': 0.1,
-
-        # Transaction cost
         'transaction_cost': 0.0005,
-
-        # Jump diffusion parameters
         'jump_params': (0.05, 0.02, 0.1),
-
-        # Mean reversion
         'mean_reversion_speed': 0.1,
         'long_term_mean': 100,
-
-        # Market shock probability
         'market_shock_prob': 0.01,
-        'market_shock': None,
-
-        # Random seed for reproducibility
         'random_seed': 2025
     }
 ]
@@ -72,90 +55,90 @@ configs_test = [
 configs_pure_gbm = [
     {
         'name': 'PureGBMTest',
-        'duration': 1,             # 1 year
-        'steps': 252,              # ~1 step per trading day
-        'initial_price': 100,      # Starting stock price
-        'fundamental_value': 100,  # Not used (just fixed)
-        'initial_liquidity': 1e6,  # High liquidity (won’t matter much here)
-
-        # We choose 20% annual volatility as “base_volatility”
+        'duration': 1,
+        'steps': 252,
+        'initial_price': 100,
+        'fundamental_value': 100,
+        'initial_liquidity': 1e6,
         'base_volatility': 0.2,
-
-        # GARCH parameters set to (0, 0, 1) => keeps volatility constant
-        # Explanation: h_{t+1} = 0 + 0*return^2 + 1*h_t = h_t
-        # so h never changes from its initial.
         'garch_params': (0.0, 0.0, 1.0),
-
-        # Turn off all macro factors by setting them to zero and zero volatility
         'macro_impact': {
             'interest_rate': (0.0, 0.0),
             'inflation': (0.0, 0.0)
         },
-
-        # Turn off sentiment
         'sentiment_params': (0.0, 0.0),
-
-        # Disable flash crash by giving an impossible threshold
         'flash_crash_threshold': (-999, 999),
-
-        # Disable market–maker effect
         'market_maker_power': 0.0,
-
-        # No transaction cost, purely for clarity
         'transaction_cost': 0.0,
-
-        # Turn off jump diffusion
         'jump_params': (0.0, 0.0, 0.0),
-
-        # Disable mean reversion
         'mean_reversion_speed': 0.0,
         'long_term_mean': 100,
-
-        # No market shocks
         'market_shock_prob': 0.0,
-        'market_shock': None,
-
-        # Single regime, no transitions => standard drift
         'regimes': [
             {
                 'name': 'normal',
-                'drift': 0.07,        # 7% annual drift
+                'drift': 0.07,
                 'vol_scale': 1.0,
-                'transitions': {
-                    'normal': 1.0
-                }
+                'transitions': {'normal': 1.0}
             }
-        ],
-
-        # Seed for reproducibility
-        # 'random_seed': 2025
+        ]
     }
 ]
+
+
+def adjust_transition_probabilities(config, steps_per_day):
+    """
+    Properly converts daily transition probabilities to per-step probabilities
+    while maintaining Markov chain validity
+    """
+    if 'original_transitions' not in config:
+        return
+
+    adjusted_regimes = []
+    original_transitions = config['original_transitions']
+
+    # Process each regime
+    for regime_name in original_transitions:
+        # Get original daily transitions
+        daily_transitions = original_transitions[regime_name]
+
+        # Convert to per-step transitions
+        step_transitions = {}
+        for target, daily_prob in daily_transitions.items():
+            step_prob = daily_prob / steps_per_day
+            step_transitions[target] = round(step_prob, 6)
+
+        # Calculate remaining probability for staying in current regime
+        total_leave = sum(step_transitions.values())
+        step_transitions[regime_name] = max(0, 1 - total_leave)
+
+        # Find original regime parameters
+        base_regime = next(
+            r for r in config['regimes'] if r['name'] == regime_name)
+
+        # Create adjusted regime
+        adjusted_regimes.append({
+            'name': regime_name,
+            'drift': base_regime['drift'],
+            'vol_scale': base_regime['vol_scale'],
+            'transitions': step_transitions
+        })
+
+    # Update config with adjusted regimes
+    config['regimes'] = adjusted_regimes
+
+
+# Apply transitions adjustment when file is loaded
+if __name__ == "__main__":
+    # Apply to all test configs that have original_transitions
+    for config in configs_test:
+        if 'original_transitions' in config:
+            adjust_transition_probabilities(config, steps_per_day)
+
 
 # Function to adjust transition probabilities for multi-step days
 
 
-def adjust_transition_probabilities(config, steps_per_day):
-    adjusted_regimes = []
-    for regime in config['original_transitions']:
-        transitions = config['original_transitions'][regime]
-        adjusted_transitions = {}
-
-        for target, prob_per_day in transitions.items():
-            # Adjust probability for per-step transition using p^(1/n)
-            prob_per_step = prob_per_day ** (1 / steps_per_day)
-            adjusted_transitions[target] = round(
-                prob_per_step, 6)  # Round for stability
-
-        adjusted_regimes.append({'name': regime, 'drift': 0.01 if regime == 'stable_random_walk' else 0.50,
-                                 'vol_scale': 0.4 if regime == 'stable_random_walk' else 1.5,
-                                 'transitions': adjusted_transitions})
-
-    config['regimes'] = adjusted_regimes
-
-
-# Apply the adjustment
-adjust_transition_probabilities(configs_test[0], steps_per_day)
 
 
 
