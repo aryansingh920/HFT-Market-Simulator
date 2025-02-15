@@ -6,84 +6,84 @@
 import numpy as np
 
 # # Global simulation parameters
-# steps_per_day = 10  # Default value, can be modified as needed
+steps_per_day = 10  # Default value, can be modified as needed
 
-# configs_test = [
-#     {
-#         'name': 'Complex Regime Example',
-#         'duration': 1,               # 1 year
-#         'steps': 252 * steps_per_day,
-#         'initial_price': 100,
-#         'fundamental_value': 100,
-#         'initial_liquidity': 1e6,
-#         'base_volatility': 5,
+configs_test = [
+    {
+        'name': 'Complex Regime Example',
+        'duration': 1,               # 1 year
+        'steps': 252 * steps_per_day,
+        'initial_price': 100,
+        'fundamental_value': 100,
+        'initial_liquidity': 1e6,
+        'base_volatility': 50,
 
-#         # Original daily transition probabilities
-#         'original_transitions': {
-#             'pre_crisis': {'pre_crisis': 0.85, 'collapse': 0.15},
-#             'collapse': {'collapse': 0.7, 'rebound': 0.3},
-#             'rebound': {'rebound': 0.6, 'collapse': 0.1, 'post_crisis': 0.3},
-#             'post_crisis': {'post_crisis': 1.0}
-#         },
+        # Original daily transition probabilities
+        'original_transitions': {
+            'pre_crisis': {'pre_crisis': 0.85, 'collapse': 0.15},
+            'collapse': {'collapse': 0.7, 'rebound': 0.3},
+            'rebound': {'rebound': 0.6, 'collapse': 0.1, 'post_crisis': 0.3},
+            'post_crisis': {'post_crisis': 1.0}
+        },
 
-#         # Base regime parameters (without transitions)
-#         'regimes': [
-#             {'name': 'pre_crisis', 'drift': 0.05, 'vol_scale': 1.0},
-#             {'name': 'collapse', 'drift': -0.5, 'vol_scale': 3.5},
-#             {'name': 'rebound', 'drift': 0.15, 'vol_scale': 2.0},
-#             {'name': 'post_crisis', 'drift': 0.08, 'vol_scale': 1.2}
-#         ],
+        # Base regime parameters (without transitions)
+        'regimes': [
+            {'name': 'pre_crisis', 'drift': 0.05, 'vol_scale': 1.0},
+            {'name': 'collapse', 'drift': -0.5, 'vol_scale': 3.5},
+            {'name': 'rebound', 'drift': 0.15, 'vol_scale': 2.0},
+            {'name': 'post_crisis', 'drift': 0.08, 'vol_scale': 1.2}
+        ],
 
-#         # Other parameters
-#         'garch_params': (0.005, 0.08, 0.85),
-#         'macro_impact': {
-#             'interest_rate': (0.03, 0.005),
-#             'inflation': (0.02, 0.002)
-#         },
-#         'sentiment_params': (0.3, 0.1),
-#         'flash_crash_threshold': (-0.15, 2),
-#         'market_maker_power': 0.1,
-#         'transaction_cost': 0.0005,
-#         'jump_params': (0.05, 0.02, 0.1),
-#         'mean_reversion_speed': 0.1,
-#         'long_term_mean': 100,
-#         'market_shock_prob': 0.01,
-#         'random_seed': 2025
-#     }
-# ]
+        # Other parameters
+        'garch_params': (0.005, 0.08, 0.85),
+        'macro_impact': {
+            'interest_rate': (0.03, 0.005),
+            'inflation': (0.02, 0.002)
+        },
+        'sentiment_params': (0.3, 0.1),
+        'flash_crash_threshold': (-0.15, 2),
+        'market_maker_power': 0.1,
+        'transaction_cost': 0.0005,
+        'jump_params': (0.05, 0.02, 0.1),
+        'mean_reversion_speed': 0.1,
+        'long_term_mean': 100,
+        'market_shock_prob': 0.01,
+        'random_seed': 2025
+    }
+]
 
-# configs_pure_gbm = [
-#     {
-#         'name': 'PureGBMTest',
-#         'duration': 1,
-#         'steps': 252,
-#         'initial_price': 100,
-#         'fundamental_value': 100,
-#         'initial_liquidity': 1e6,
-#         'base_volatility': 0.2,
-#         'garch_params': (0.0, 0.0, 1.0),
-#         'macro_impact': {
-#             'interest_rate': (0.0, 0.0),
-#             'inflation': (0.0, 0.0)
-#         },
-#         'sentiment_params': (0.0, 0.0),
-#         'flash_crash_threshold': (-999, 999),
-#         'market_maker_power': 0.0,
-#         'transaction_cost': 0.0,
-#         'jump_params': (0.0, 0.0, 0.0),
-#         'mean_reversion_speed': 0.0,
-#         'long_term_mean': 100,
-#         'market_shock_prob': 0.0,
-#         'regimes': [
-#             {
-#                 'name': 'normal',
-#                 'drift': 0.07,
-#                 'vol_scale': 1.0,
-#                 'transitions': {'normal': 1.0}
-#             }
-#         ]
-#     }
-# ]
+configs_pure_gbm = [
+    {
+        'name': 'PureGBMTest',
+        'duration': 1,
+        'steps': 252,
+        'initial_price': 100,
+        'fundamental_value': 100,
+        'initial_liquidity': 1e6,
+        'base_volatility': 0.2,
+        'garch_params': (0.0, 0.0, 1.0),
+        'macro_impact': {
+            'interest_rate': (0.0, 0.0),
+            'inflation': (0.0, 0.0)
+        },
+        'sentiment_params': (0.0, 0.0),
+        'flash_crash_threshold': (-999, 999),
+        'market_maker_power': 0.0,
+        'transaction_cost': 0.0,
+        'jump_params': (0.0, 0.0, 0.0),
+        'mean_reversion_speed': 0.0,
+        'long_term_mean': 100,
+        'market_shock_prob': 0.0,
+        'regimes': [
+            {
+                'name': 'normal',
+                'drift': 0.07,
+                'vol_scale': 1.0,
+                'transitions': {'normal': 1.0}
+            }
+        ]
+    }
+]
 
 
 # def adjust_transition_probabilities(config, steps_per_day):
@@ -139,7 +139,7 @@ import numpy as np
 configs_nvidia = [
     {
         'name': 'NVIDIA_HypeCycle_Stable',
-        'duration': 3,
+        'duration': 1,
         'steps': 252 * 78,
         'initial_price': 150,
         'fundamental_value': 150,
