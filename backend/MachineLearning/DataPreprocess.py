@@ -29,11 +29,30 @@ orderbook_df.rename(columns=column_mapping, inplace=True)
 numeric_columns = ['bid_price', 'ask_price', 'bid_volume', 'ask_volume']
 
 for col in numeric_columns:
-    # Convert to float, setting errors to NaN
+    # Convert to float, replacing errors with NaN
     orderbook_df[col] = pd.to_numeric(orderbook_df[col], errors='coerce')
 
-# Drop rows with NaN (optional, if needed)
-orderbook_df.dropna(subset=numeric_columns, inplace=True)
+# Debugging: Check if there are missing values
+print("\nMissing Values in Orderbook Data (Before Handling):")
+print(orderbook_df.isna().sum())
+
+# **Fix Missing Data** (Keep price data, fill missing volumes)
+# Keep rows with at least price info
+orderbook_df = orderbook_df.dropna(subset=['bid_price', 'ask_price'])
+# Replace NaN volumes with small value
+# orderbook_df['bid_volume'].fillna(0.01, inplace=True)
+# orderbook_df['ask_volume'].fillna(0.01, inplace=True)
+orderbook_df = orderbook_df.copy()  # Ensure we are working with a copy
+orderbook_df.loc[:, 'bid_volume'] = orderbook_df['bid_volume'].fillna(0.01)
+orderbook_df.loc[:, 'ask_volume'] = orderbook_df['ask_volume'].fillna(0.01)
+
+# Debugging: Check again after fixing missing values
+print("\nMissing Values in Orderbook Data (After Handling):")
+print(orderbook_df.isna().sum())
+
+# Check if dataframe is empty after fixes
+if orderbook_df.empty:
+    print("⚠️ ERROR: Orderbook dataframe is still empty after handling missing values! Check your dataset.")
 
 ### Feature Extraction: Order Book ###
 
@@ -79,4 +98,4 @@ orderbook_df.to_csv(
     "backend/processed_output/orderbook_features.csv", index=False)
 steps_df.to_csv("backend/processed_output/steps_features.csv", index=False)
 
-print("Feature extraction complete! Processed files saved.")
+print("\n✅ Feature extraction complete! Processed files saved.")
