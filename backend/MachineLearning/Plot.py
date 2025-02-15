@@ -1,3 +1,13 @@
+"""
+Created on 15/02/2025
+
+@author: Aryan
+
+Filename: Plot.py
+
+Relative Path: backend/MachineLearning/Plot.py
+"""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from constants import ORDERBOOK_FEATURES, STEPS_FEATURES

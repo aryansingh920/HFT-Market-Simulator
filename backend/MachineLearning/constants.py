@@ -1,3 +1,13 @@
+"""
+Created on 15/02/2025
+
+@author: Aryan
+
+Filename: constants.py
+
+Relative Path: backend/MachineLearning/constants.py
+"""
+
 BACKEND = 'backend'
 
 SIMULATION_OUTPUT = f'{BACKEND}/simulation_output'
