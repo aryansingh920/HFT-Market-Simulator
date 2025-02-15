@@ -1,9 +1,9 @@
 import pandas as pd
 import numpy as np
-
+from constants import ORDERBOOK_SNAPSHOT, SIMULATION_STEPS, ORDERBOOK_FEATURES, STEPS_FEATURES, column_mapping
 # Load Order Book Data
-orderbook_path = "backend/simulation_output/Complex Regime Example_orderbook.csv"
-steps_path = "backend/simulation_output/Complex Regime Example_steps.csv"
+orderbook_path = ORDERBOOK_SNAPSHOT
+steps_path = SIMULATION_STEPS
 
 orderbook_df = pd.read_csv(orderbook_path)
 steps_df = pd.read_csv(steps_path)
@@ -17,12 +17,7 @@ print("Orderbook Columns:", orderbook_df.columns)
 print("Steps Columns:", steps_df.columns)
 
 # Column Mapping
-column_mapping = {
-    'best_bid': 'bid_price',
-    'best_ask': 'ask_price',
-    'bid_orders': 'bid_volume',
-    'ask_orders': 'ask_volume'
-}
+
 orderbook_df.rename(columns=column_mapping, inplace=True)
 
 # Convert relevant columns to float (ensuring correct dtype)
@@ -95,7 +90,7 @@ steps_df['avg_trade_size'] = steps_df['price'].rolling(window=5).mean()
 
 # Save Processed Data
 orderbook_df.to_csv(
-    "backend/processed_output/orderbook_features.csv", index=False)
-steps_df.to_csv("backend/processed_output/steps_features.csv", index=False)
+    ORDERBOOK_FEATURES, index=False)
+steps_df.to_csv(STEPS_FEATURES, index=False)
 
 print("\n✅ Feature extraction complete! Processed files saved.")

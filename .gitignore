@@ -29,3 +29,5 @@ server/__pycache__/config.cpython-310.pyc
 server/__pycache__
 
 backend/MarketSimulation/__pycache__
+
+backend/MachineLearning/__pycache__
