@@ -18,8 +18,8 @@ from sklearn.metrics import mean_squared_error
 from xgboost import XGBRegressor
 
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, LSTM
+from tensorflow.keras.models import Sequential  # type: ignore
+from tensorflow.keras.layers import Dense, LSTM  # type: ignore
 
 from arch import arch_model
 import os
