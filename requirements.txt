@@ -8,4 +8,8 @@ plotly
 python-socketio 
 eventlet
 arch
-
+scikit-learn
+tensorflow
+xgboost
+keras
+tf-keras

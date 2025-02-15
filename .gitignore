@@ -31,3 +31,5 @@ server/__pycache__
 backend/MarketSimulation/__pycache__
 
 backend/MachineLearning/__pycache__
+
+.vscode
