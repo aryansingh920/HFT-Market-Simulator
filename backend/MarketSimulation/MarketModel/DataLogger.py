@@ -1,3 +1,13 @@
+"""
+Created on 15/02/2025
+
+@author: Aryan
+
+Filename: DataLogger.py
+
+Relative Path: backend/MarketSimulation/MarketModel/DataLogger.py
+"""
+
 import csv
 import json
 

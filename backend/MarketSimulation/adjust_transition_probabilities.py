@@ -1,3 +1,13 @@
+"""
+Created on 15/02/2025
+
+@author: Aryan
+
+Filename: adjust_transition_probabilities.py
+
+Relative Path: backend/MarketSimulation/adjust_transition_probabilities.py
+"""
+
 def adjust_transition_probabilities(config, steps_per_day):
     adjusted_regimes = []
     original_transitions = config['original_transitions']
