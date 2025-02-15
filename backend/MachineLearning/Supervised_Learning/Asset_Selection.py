@@ -23,11 +23,10 @@ from tensorflow.keras.layers import Dense, LSTM  # type: ignore
 
 from arch import arch_model
 import os
+
 STEPS_FEATURES = "backend/processed_data/steps_features.csv"
 ORDERBOOK_FEATURES = "backend/processed_data/orderbook_features.csv"
 # Define paths to your processed CSVs (these should match your constants)
-
-# print("Path",os.getcwd())
 
 
 def create_sequences(X, y, window_size=10):
@@ -47,6 +46,9 @@ def train_asset_selection_models():
       - Expected Returns: LSTM and XGBoost regression models.
       - Market Volatility: GARCH model and Random Forest.
       - Optimal Position Sizing: Neural Network.
+    
+    After training, this function demonstrates how to use the trained models
+    for asset selection using new data.
     """
     # ---------------------------
     # 1. Load and Prepare Data
@@ -136,18 +138,13 @@ def train_asset_selection_models():
     print("\n--- Training Market Volatility Models ---")
 
     # (a) GARCH Model
-    # Note: GARCH is typically fitted on a univariate series (e.g., returns).
-    # Here we fit a GARCH(1,1) on the training returns.
     print("Fitting GARCH(1,1) model on training returns...")
-    # We use the training return series (ensure it’s a 1D numpy array)
     garch_model = arch_model(
         y_train_return, vol='Garch', p=1, q=1, dist='normal')
     garch_fit = garch_model.fit(disp='off')
     # Forecast volatility for the next time point for the test set
     garch_forecast = garch_fit.forecast(horizon=1)
-    # Extract the variance forecasts and take the square root to get volatility
     garch_pred_vol = np.sqrt(garch_forecast.variance.values[-1, :])
-    # For comparison, we take the mean of the forecast as a proxy
     garch_pred = np.full_like(y_test_vol, garch_pred_vol.mean())
     garch_mse = mean_squared_error(y_test_vol, garch_pred)
     print(f"GARCH Model Test MSE (volatility): {garch_mse:.6f}")
@@ -190,7 +187,82 @@ def train_asset_selection_models():
     print(f"Market Volatility - Random Forest MSE: {rf_mse:.6f}")
     print(f"Optimal Position Sizing - NN MSE: {nn_mse:.6f}")
 
+    # ---------------------------
+    # 6. Asset Selection Demo
+    # ---------------------------
+    # Now we simulate using our trained models to perform asset selection on new data.
+    # In practice, new_data would come from a live feed or a new CSV with the same features.
+    print("\n--- Asset Selection Demo ---")
+    # For demonstration, we create a dummy DataFrame with new asset features.
+    # These values should be computed in the same way as your training features.
+    demo_data = pd.DataFrame({
+        'price': [100.5, 101.0, 99.8],
+        'moving_avg_5': [100.2, 100.7, 100.0],
+        'moving_avg_10': [100.0, 100.4, 99.9],
+        'momentum': [0.5, 0.3, -0.2],
+        'trade_frequency': [50, 45, 55],
+        'avg_trade_size': [200, 210, 190]
+    })
 
-# To run the training function, simply call it:
+    best_asset, asset_scores = select_asset(
+        demo_data, xgb_model, rf_model, nn_model)
+    print("\nAsset Selection Results:")
+    print("Best Asset:")
+    print(best_asset)
+    print("\nAll Asset Scores:")
+    print(asset_scores)
+
+
+def select_asset(new_data, xgb_model, rf_model, nn_model):
+    """
+    Select the best asset from new_data based on model predictions.
+
+    Parameters:
+      new_data (pd.DataFrame): DataFrame containing features for each asset.
+        Expected columns: ['price', 'moving_avg_5', 'moving_avg_10',
+                           'momentum', 'trade_frequency', 'avg_trade_size']
+      xgb_model: Trained XGBoost model for predicting expected returns.
+      rf_model: Trained Random Forest model for predicting market volatility.
+      nn_model: Trained Neural Network model for predicting optimal position sizing.
+
+    Returns:
+      best_asset (pd.Series): The row from new_data corresponding to the selected asset.
+      new_data['composite_score'] (pd.Series): The computed composite scores for each asset.
+
+    Approach:
+      - Predict expected returns using the XGBoost model.
+      - Predict volatility using the Random Forest model.
+      - Predict optimal position sizing using the Neural Network.
+      - Compute a composite score. Here we demonstrate using risk-adjusted return:
+          composite_score = predicted_return / (predicted_volatility + 1e-8)
+      You can adjust this scoring function based on your strategy.
+    """
+    features = ['price', 'moving_avg_5', 'moving_avg_10',
+                'momentum', 'trade_frequency', 'avg_trade_size']
+    X_new = new_data[features].values
+
+    # Predict metrics for each asset
+    predicted_return = xgb_model.predict(X_new)        # Expected return
+    predicted_volatility = rf_model.predict(X_new)       # Volatility
+    predicted_optimal = nn_model.predict(
+        X_new).flatten()  # Optimal position sizing
+
+    # Compute a composite score. For example, here we use risk-adjusted return:
+    composite_score = predicted_return / (predicted_volatility + 1e-8)
+
+    # Append predictions and composite score to the new_data DataFrame
+    new_data = new_data.copy()
+    new_data['predicted_return'] = predicted_return
+    new_data['predicted_volatility'] = predicted_volatility
+    new_data['predicted_optimal'] = predicted_optimal
+    new_data['composite_score'] = composite_score
+
+    # Select the asset with the highest composite score
+    best_asset = new_data.loc[new_data['composite_score'].idxmax()]
+
+    return best_asset, new_data['composite_score']
+
+
+# To run the training and asset selection demo, simply call the function:
 if __name__ == "__main__":
     train_asset_selection_models()
