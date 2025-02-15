@@ -6,32 +6,32 @@
 import numpy as np
 
 # # Global simulation parameters
-steps_per_day = 100  # Default value, can be modified as needed
+steps_per_day = 1  # Default value, can be modified as needed
 
 configs_test = [
     {
         'name': 'Complex Regime Example',
-        'duration': 5,               # 1 year
+        'duration': 1,               # 1 year
         'steps': 252 * steps_per_day,
         'initial_price': 100,
         'fundamental_value': 100,
         'initial_liquidity': 1e6,
-        'base_volatility': 5,
+        'base_volatility': 0.9,
 
         # Original daily transition probabilities
         'original_transitions': {
             'pre_crisis': {'pre_crisis': 0.85, 'collapse': 0.15},
-            'collapse': {'collapse': 0.7, 'rebound': 0.3},
-            'rebound': {'rebound': 0.6, 'collapse': 0.1, 'post_crisis': 0.3},
-            'post_crisis': {'post_crisis': 1.0}
+            'collapse': {'collapse': 0.3, 'rebound': 0.3},
+            'rebound': {'rebound': 0.9, 'collapse': 0.1, 'post_crisis': 0.3},
+            'post_crisis': {'post_crisis': 0.2}
         },
 
         # Base regime parameters (without transitions)
         'regimes': [
             {'name': 'pre_crisis', 'drift': 0.05, 'vol_scale': 1.0},
-            {'name': 'collapse', 'drift': -0.5, 'vol_scale': 3.5},
-            {'name': 'rebound', 'drift': 0.15, 'vol_scale': 2.0},
-            {'name': 'post_crisis', 'drift': 0.08, 'vol_scale': 1.2}
+            {'name': 'collapse', 'drift': -0.1, 'vol_scale': 3.5},
+            {'name': 'rebound', 'drift': 0.35, 'vol_scale': 2.0},
+            {'name': 'post_crisis', 'drift': 0.58, 'vol_scale': 5.2}
         ],
 
         # Other parameters
@@ -48,7 +48,7 @@ configs_test = [
         'mean_reversion_speed': 0.1,
         'long_term_mean': 100,
         'market_shock_prob': 0.01,
-        'random_seed': 2025
+        # 'random_seed': 2025
     }
 ]
 
@@ -241,7 +241,7 @@ def adjust_transition_probabilities(config, steps_per_day):
 
 
 # Initialize with 78 steps/day (3.5 minute bars)
-for config in configs_nvidia:
-    adjust_transition_probabilities(config, 78)
-    # Adjust total steps for duration
-    config['steps'] = 252 * 78 * config['duration']
+# for config in configs_nvidia, configs_test:
+#     adjust_transition_probabilities(config, 78)
+#     # Adjust total steps for duration
+#     config['steps'] = 252 * 78 * config['duration']
