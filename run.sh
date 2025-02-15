@@ -1,7 +1,7 @@
 #!/bin/zsh
 
-pip install -r server/requirements.txt
-python server/main.py
+pip install -r requirements.txt
+python MarketSimulation/main.py
 
 cd client 
 npm install 

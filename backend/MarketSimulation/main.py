@@ -32,7 +32,7 @@ if __name__ == "__main__":
         config_details.append(config)
 
         # Create an output folder if needed
-        output_folder = "simulation_output"
+        output_folder = "backend/simulation_output"
         os.makedirs(output_folder, exist_ok=True)
 
         # Save simulation step data
