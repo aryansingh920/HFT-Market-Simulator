@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+numpy
+mplfinance
+pandas
+dash
+plotly
+python-socketio 
+eventlet
+arch
+scikit-learn
+tensorflow
+xgboost
+keras
+tf-keras
