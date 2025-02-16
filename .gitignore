@@ -37,3 +37,5 @@ backend/MachineLearning/__pycache__
 backend/models
 
 backend/processed_data
+
+backend/MarketSimulation/MarketModel/__pycache__

@@ -18,6 +18,22 @@ default_steps_per_day = 1
 # Configuration Dictionaries
 # -------------------------
 
+intraday_config = {
+    "initial_price": 100.0,
+    "initial_liquidity": 1_000_000,    # liquidity for the order book
+    "steps_per_day": 390,             # 1 step per minute in a 6.5-hour trading day
+    "base_volatility": 0.005,         # baseline intraday volatility
+    "drift": 0.001,                   # small intraday drift
+    "order_size_mean": 100,
+    "order_size_std": 20,
+    # how strongly the MM moves prices based on order imbalance
+    "market_maker_power": 0.05,
+    # transaction cost rate (30 bps per trade)
+    "transaction_cost": 0.0003,
+    "random_seed": 42                 # reproducibility
+}
+
+
 configs_test = [
     {
         'name': 'Complex Regime Example',
