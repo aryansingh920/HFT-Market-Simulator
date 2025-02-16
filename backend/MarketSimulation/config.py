@@ -8,8 +8,10 @@ Filename: config.py
 Relative Path: backend/MarketSimulation/config.py
 """
 
-import numpy as np
+
 import random
+import datetime
+
 # Global simulation parameters
 # Default: 1 step per day if not modified. (For high resolution, total steps will be higher.)
 default_steps_per_day = 1
@@ -30,7 +32,9 @@ intraday_config = {
         "market_maker_power": 0.05,
         # transaction cost rate (30 bps per trade)
         "transaction_cost": 0.0003,
-        "random_seed": random.randint(1, 10)                 # reproducibility
+        # reproducibility
+        "random_seed": int(datetime.datetime.now().timestamp())
+        # "random_seed": random.randint(1, 10)                 # reproducibility
     },
 
     "intraday_regimes": [
