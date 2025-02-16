@@ -9,7 +9,7 @@ Relative Path: backend/MarketSimulation/config.py
 """
 
 import numpy as np
-
+import random
 # Global simulation parameters
 # Default: 1 step per day if not modified. (For high resolution, total steps will be higher.)
 default_steps_per_day = 1
@@ -19,19 +19,46 @@ default_steps_per_day = 1
 # -------------------------
 
 intraday_config = {
-    "initial_price": 100.0,
-    "initial_liquidity": 1_000_000,    # liquidity for the order book
-    "steps_per_day": 390,             # 1 step per minute in a 6.5-hour trading day
-    "base_volatility": 0.005,         # baseline intraday volatility
-    "drift": 0.001,                   # small intraday drift
-    "order_size_mean": 100,
-    "order_size_std": 20,
-    # how strongly the MM moves prices based on order imbalance
-    "market_maker_power": 0.05,
-    # transaction cost rate (30 bps per trade)
-    "transaction_cost": 0.0003,
-    "random_seed": 42                 # reproducibility
+    "intraday_config": {
+        "initial_price": 100.0,
+        "fundamental_value": 100.0,
+        "initial_liquidity": 1_000_000,    # liquidity for the order book
+        "steps_per_day": 390,             # 1 step per minute in a 6.5-hour trading day
+        "base_volatility": 0.005,         # baseline intraday volatility
+        "drift": 0.001,                   # small intraday drift
+        # how strongly the MM moves prices based on order imbalance
+        "market_maker_power": 0.05,
+        # transaction cost rate (30 bps per trade)
+        "transaction_cost": 0.0003,
+        "random_seed": random.randint(1, 10)                 # reproducibility
+    },
+
+    "intraday_regimes": [
+        {
+            'name': 'morning_session',
+            'drift': 0.04,
+            'vol_scale': 1.5,
+        },
+        {
+            'name': 'midday_lull',
+            'drift': 0.00,
+            'vol_scale': 0.8,
+        },
+        {
+            'name': 'afternoon_ramp',
+            'drift': 0.00,
+            'vol_scale': 1.2,
+        },
+    ],
+
+    "intraday_transition_probabilities": {
+        'morning_session': {'morning_session': 0.90, 'midday_lull': 0.10},
+        'midday_lull':     {'midday_lull': 0.95, 'afternoon_ramp': 0.05},
+        'afternoon_ramp':  {'afternoon_ramp': 0.98}
+    }
 }
+
+
 
 
 configs_test = [

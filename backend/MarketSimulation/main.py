@@ -66,54 +66,26 @@ import os
 
 
 if __name__ == "__main__":
-    # Example: define intraday regime logic similar to your original code
-    # Just as an illustration—use the same or a simplified set of regimes as in your daily simulator.
-    intraday_regimes = [
-        {
-            'name': 'morning_session',
-            'drift': 0.00,
-            'vol_scale': 1.5,
-        },
-        {
-            'name': 'midday_lull',
-            'drift': 0.00,
-            'vol_scale': 0.8,
-        },
-        {
-            'name': 'afternoon_ramp',
-            'drift': 0.00,
-            'vol_scale': 1.2,
-        },
-    ]
-
-    # Example transition matrix for the single day. Adjust as desired:
-    # With 390 steps in a day, you might have a few transitions to different intraday "phases."
-    intraday_transition_probabilities = {
-        'morning_session': {'morning_session': 0.90, 'midday_lull': 0.10},
-        'midday_lull':     {'midday_lull': 0.95, 'afternoon_ramp': 0.05},
-        'afternoon_ramp':  {'afternoon_ramp': 0.98}
-    }
-
-    # Instantiate our intraday simulator
+    # Instantiate intraday simulator with preloaded configs
     simulator = IntradayStockPriceSimulatorWithOrderBook(
-        initial_price=100.0,
-        fundamental_value=100.0,
-        steps_per_day=390,  # 1-minute intervals
-        base_volatility=0.005,
-        regimes=intraday_regimes,
-        transition_probabilities=intraday_transition_probabilities,
-        random_seed=2025
+        initial_price=intraday_config["intraday_config"]["initial_price"],
+        fundamental_value=intraday_config["intraday_config"]["fundamental_value"],
+        steps_per_day=intraday_config["intraday_config"]["steps_per_day"],
+        base_volatility=intraday_config["intraday_config"]["base_volatility"],
+        regimes=intraday_config["intraday_regimes"],
+        transition_probabilities=intraday_config["intraday_transition_probabilities"],
+        random_seed=intraday_config["intraday_config"]["random_seed"]
     )
 
     # Run the simulation
     results = simulator.simulate()
 
-    # results is typically a dictionary with keys like "prices", "times", etc.
+    # Extract values
     prices = results["prices"]
-    # The times might be a range [0..1], effectively representing a single day
+    # Changed "times" to "time" to match the dictionary
     times = results["time"]
 
-    # Visualize with Plotly
+    # Visualization
     fig = make_subplots(rows=1, cols=1)
     fig.add_trace(
         go.Scatter(x=times, y=prices, mode='lines+markers',
@@ -124,6 +96,6 @@ if __name__ == "__main__":
         title="Intraday Price Simulation (Single Trading Day)",
         xaxis_title="Intraday Steps",
         yaxis_title="Price",
-        template="plotly_dark"  # or any other layout
+        template="plotly_dark"
     )
     fig.show()
