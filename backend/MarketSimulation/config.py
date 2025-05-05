@@ -65,6 +65,7 @@ intraday_config = {
 
 
 
+
 configs_test = [
     {
         'name': 'Complex Regime Example',
@@ -145,54 +146,102 @@ configs_pure_gbm = [
 
 configs_nvidia = [
     {
-        'name': 'NVIDIA_HypeCycle_Stable',
+        'name': 'NVIDIA_HypeCycle_Fixed',
         'duration': 1,
-        # For high resolution, e.g. 78 steps per day: 252 * 78 steps per year
         'steps': 252 * 78,
         'initial_price': 150,
         'fundamental_value': 150,
         'initial_liquidity': 5e9,
-        'base_volatility': 0.35,
+        'base_volatility': 0.3,
 
-        # Revised daily transition probabilities
         'original_transitions': {
-            'steady_growth': {'steady_growth': 0.88, 'earnings_surge': 0.10, 'market_correction': 0.02},
-            'earnings_surge': {'earnings_surge': 0.65, 'hypergrowth': 0.30, 'market_correction': 0.05},
-            'hypergrowth': {'hypergrowth': 0.55, 'peak_frenzy': 0.40, 'market_correction': 0.05},
-            'peak_frenzy': {'peak_frenzy': 0.40, 'market_correction': 0.60},
-            'market_correction': {'market_correction': 0.70, 'steady_growth': 0.30}
+            'steady_growth':      {'steady_growth': 0.80, 'earnings_surge': 0.15, 'market_correction': 0.05},
+            'earnings_surge':     {'earnings_surge': 0.60, 'hypergrowth': 0.35, 'market_correction': 0.05},
+            'hypergrowth':        {'hypergrowth': 0.45, 'peak_frenzy': 0.50, 'market_correction': 0.05},
+            'peak_frenzy':        {'peak_frenzy': 0.30, 'market_correction': 0.70},
+            'market_correction':  {'market_correction': 0.40, 'steady_growth': 0.60}
         },
 
-        # Base regime parameters
         'regimes': [
-            {'name': 'steady_growth', 'drift': 0.25, 'vol_scale': 1.2},
-            {'name': 'earnings_surge', 'drift': 0.80, 'vol_scale': 1.5},
-            {'name': 'hypergrowth', 'drift': 1.20, 'vol_scale': 2.0},
-            {'name': 'peak_frenzy', 'drift': 1.80, 'vol_scale': 2.5},
-            {'name': 'market_correction', 'drift': -0.40, 'vol_scale': 2.0}
+            {'name': 'steady_growth',     'drift': 0.25,  'vol_scale': 1.1},
+            {'name': 'earnings_surge',    'drift': 0.70,  'vol_scale': 1.4},
+            {'name': 'hypergrowth',       'drift': 1.10,  'vol_scale': 1.8},
+            {'name': 'peak_frenzy',       'drift': 1.60,  'vol_scale': 2.4},
+            {'name': 'market_correction', 'drift': -0.30, 'vol_scale': 1.8}
         ],
 
-        'garch_params': (0.005, 0.10, 0.85),
-        'jump_params': (0.05, 0.10, 0.15),
-        'sentiment_params': (0.35, 0.15),
-        'max_price': 1e6,
-        'max_volatility': 5.0,
-        'min_liquidity': 1e-5,
-        'flash_crash_threshold': (-0.20, 1.5),
-        'market_maker_power': 0.15,
+        'garch_params': (0.003, 0.08, 0.87),
+        'jump_params': (0.01, 0.03, 0.05),
+        'sentiment_params': (0.25, 0.10),
+        'market_maker_power': 0.10,
         'transaction_cost': 0.0002,
-        'mean_reversion_speed': 0.05,
+        'mean_reversion_speed': 0.07,
         'long_term_mean': 150,
-        'market_shock_prob': 0.05,
+        'market_shock_prob': 0.01,  # Lowered from 0.05
+        'flash_crash_threshold': (-0.15, 1.5),
         'random_seed': 2025,
+
         'special_events': {
             'gpu_breakthrough': {
-                'probability': 0.10,
-                'impact': 0.25
+                'probability': 0.05,
+                'impact': 0.15
             },
             'export_restrictions': {
-                'probability': 0.08,
-                'impact': -0.20
+                'probability': 0.05,
+                'impact': -0.10
+            }
+        }
+    }
+]
+
+
+configs_apple = [
+    {
+        'name': 'Apple_MetaModel_2024_to_2025',
+        'duration': 1,
+        'steps': 252 * 78,
+        'initial_price': 180,
+        'fundamental_value': 200,
+        'initial_liquidity': 2e9,
+        'base_volatility': 0.25,
+
+        'original_transitions': {
+            'steady_growth':      {'steady_growth': 0.80, 'earnings_surge': 0.15, 'market_correction': 0.05},
+            'earnings_surge':     {'earnings_surge': 0.65, 'market_correction': 0.35},
+            'market_correction':  {'market_correction': 0.60, 'volatile_recovery': 0.40},
+            'volatile_recovery':  {'volatile_recovery': 0.70, 'steady_growth': 0.30}
+        },
+
+        'regimes': [
+            {'name': 'steady_growth',     'drift': 0.20,  'vol_scale': 1.0},
+            {'name': 'earnings_surge',    'drift': 0.55,  'vol_scale': 1.3},
+            {'name': 'market_correction', 'drift': -0.35, 'vol_scale': 2.1},
+            {'name': 'volatile_recovery', 'drift': 0.12,  'vol_scale': 1.9}
+        ],
+
+        'garch_params': (0.002, 0.1, 0.85),
+        # Higher intensity and impact for meta-model
+        'jump_params': (0.03, 0.04, 0.08),
+        'sentiment_params': (0.25, 0.10),
+        'market_maker_power': 0.10,
+        'transaction_cost': 0.0002,
+        'mean_reversion_speed': 0.08,
+        'long_term_mean': 200,
+        'market_shock_prob': 0.015,  # Activates jump_diffusion randomly
+        'flash_crash_threshold': (-0.18, 1.2),
+        'random_seed': 2025,
+
+        # This triggers the meta-model logic in your simulator
+        'meta_model_enabled': True,
+
+        'special_events': {
+            'iphone_supercycle': {
+                'probability': 0.05,
+                'impact': 0.12
+            },
+            'china_ban': {
+                'probability': 0.02,
+                'impact': -0.15
             }
         }
     }

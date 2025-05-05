@@ -13,72 +13,55 @@ import numpy as np
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 from MarketModel.StockPriceSimulatorWithOrderBook import StockPriceSimulatorWithOrderBook
-from MarketModel.IntradayStockPriceSimulatorWithOrderBook import IntradayStockPriceSimulatorWithOrderBook
+# from MarketModel.IntradayStockPriceSimulatorWithOrderBook import IntradayStockPriceSimulatorWithOrderBook
 from MarketModel.Dashboard import Dashboard
-from config import configs_nvidia, configs_pure_gbm, configs_test, intraday_config
+# from config import configs_nvidia, configs_pure_gbm, configs_test, intraday_config, IntradayStockPriceSimulator
+from config import configs_nvidia, configs_pure_gbm, configs_test, configs_apple
 from MarketModel.DataLogger import save_simulation_steps_csv, save_orderbook_snapshots_csv, save_config_as_json
 import os
 
-# if __name__ == "__main__":
-#     results = []
-#     config_names = []
-#     config_details = []
 
-#     simulator = IntradayStockPriceSimulator(**intraday_config)
+import matplotlib.pyplot as plt
 
-#     # Run the simulation
-#     simulator.run_simulation()
 
-#     # Retrieve results as a pandas DataFrame
-#     results = simulator.get_results()
+def plot_price_with_regimes(sim_result):
+    prices = sim_result['prices']
+    time = sim_result['time']
+    regimes = sim_result['regime_history']
 
-#     # For each configuration in configs_nvidia, instantiate and run the new simulator.
-#     for idx, config in enumerate(configs_test, 1):
-#         name = config.get("name", f"Simulation_{idx}")
-#         print(f"Running simulation with order book: {name}")
+    unique_regimes = list(set(regimes))
+    color_map = {r: plt.cm.tab10(i) for i, r in enumerate(unique_regimes)}
 
-#         simulator = StockPriceSimulatorWithOrderBook(**config)
-#         result = simulator.simulate()
-#         results.append(result)
-#         config_names.append(name)
-#         config_details.append(config)
+    plt.figure(figsize=(14, 6))
+    for i in range(1, len(prices)):
+        r = regimes[i - 1]
+        plt.plot(time[i-1:i+1], prices[i-1:i+1], color=color_map[r])
 
-#         # Create an output folder if needed
-#         output_folder = "backend/simulation_output"
-#         os.makedirs(output_folder, exist_ok=True)
+    plt.title("Price Trajectory with Regime Coloring")
+    plt.xlabel("Time")
+    plt.ylabel("Price")
+    plt.grid(True)
+    plt.legend(handles=[plt.Line2D([0], [0], color=color, label=reg)
+               for reg, color in color_map.items()])
 
-#         # Save simulation step data
-#         steps_filename = os.path.join(output_folder, f"{name}_steps.csv")
-#         save_simulation_steps_csv(result, steps_filename)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(
+        lambda x, _: pd.to_datetime(x, unit='s').strftime('%H:%M:%S')))
+    plt.gca().xaxis.set_major_locator(plt.MaxNLocator(nbins=10))
 
-#         # Save order book snapshots
-#         orderbook_filename = os.path.join(
-#             output_folder, f"{name}_orderbook.csv")
-#         save_orderbook_snapshots_csv(result, orderbook_filename)
-
-#         # Optionally, save the configuration once per simulation.
-#         config_filename = os.path.join(output_folder, f"{name}_config.json")
-#         save_config_as_json(config, config_filename)
-
-#     # Optionally, launch the dashboard to visualize the simulation.
-#     dashboard = Dashboard(results, config_names, config_details)
-#     dashboard.run()
+    plt.show()
 
 
 if __name__ == "__main__":
-    # Instantiate intraday simulator with preloaded configs
-    simulator = IntradayStockPriceSimulatorWithOrderBook(
-        initial_price=intraday_config["intraday_config"]["initial_price"],
-        fundamental_value=intraday_config["intraday_config"]["fundamental_value"],
-        steps_per_day=intraday_config["intraday_config"]["steps_per_day"],
-        base_volatility=intraday_config["intraday_config"]["base_volatility"],
-        regimes=intraday_config["intraday_regimes"],
-        transition_probabilities=intraday_config["intraday_transition_probabilities"],
-        random_seed=intraday_config["intraday_config"]["random_seed"]
-    )
+    config_used = configs_apple[0]
+    simulator = StockPriceSimulatorWithOrderBook(**config_used)
+
 
     # Run the simulation
     results = simulator.simulate()
+    plot_price_with_regimes(results)
+
 
     # Extract values
     prices = results["prices"]
@@ -93,9 +76,71 @@ if __name__ == "__main__":
         row=1, col=1
     )
     fig.update_layout(
-        title="Intraday Price Simulation (Single Trading Day)",
-        xaxis_title="Intraday Steps",
+        title=config_used["name"],
+        xaxis_title="Time",
         yaxis_title="Price",
-        template="plotly_dark"
+        xaxis_tickformat="%H:%M:%S",
+        xaxis_tickangle=-45,
+        yaxis_tickformat=".2f",
+        yaxis_tickangle=-45,
+        margin=dict(l=40, r=40, t=40, b=40),
+        # height=600,
+        # width=800,
+        # template="plotly_black",
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+        hovermode="x unified",
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=12,
+            font_family="Arial"
+        ),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(
+            family="Arial, sans-serif",
+            size=12,
+            color="black"
+        ),
+        title_font=dict(
+            family="Arial, sans-serif",
+            size=16,
+            color="black"
+        ),
+        xaxis=dict(
+            showgrid=True,
+            gridcolor="lightgray",
+            zeroline=True,
+            zerolinecolor="black",
+            zerolinewidth=1,
+            showline=True,
+            linewidth=1,
+            linecolor="black",
+            ticks="outside",
+            tickcolor="black",
+            tickwidth=1,
+            ticklen=5
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor="lightgray",
+            zeroline=True,
+            zerolinecolor="black",
+            zerolinewidth=1,
+            showline=True,
+            linewidth=1,
+            linecolor="black",
+            ticks="outside",
+            tickcolor="black",
+            tickwidth=1,
+            ticklen=5
+        )
+
     )
     fig.show()

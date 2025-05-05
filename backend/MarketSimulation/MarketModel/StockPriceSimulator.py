@@ -155,16 +155,32 @@ class StockPriceSimulator:
                     continue
 
             # --- Choose simulation model ---
-            def choose_model(t, current_price, liquidity):
-                if np.random.rand() < market_shock_prob:
+            # def choose_model(t, current_price, liquidity):
+            #     if np.random.rand() < market_shock_prob:
+            #         return "jump_diffusion"
+            #     if liquidity < 0.5 * initial_liquidity:
+            #         return "mean_reverting"
+            #     if regime_switch is not None and (t % max(1, int(steps/10)) == 0):
+            #         return "regime_switching"
+            #     if steps // 3 < t < 2 * steps // 3:
+            #         return "stochastic_volatility"
+            #     return "standard"
+
+            def choose_model(t, current_price, liquidity, garch_vol, sentiment, deviation):
+                low_liquidity = liquidity < 0.3 * initial_liquidity
+                high_sentiment = abs(sentiment) > 0.6
+                recent_vol_spike = garch_vol > 1.5 * base_volatility
+                high_deviation = abs(deviation) > 0.08
+
+                if np.random.rand() < market_shock_prob or recent_vol_spike:
                     return "jump_diffusion"
-                if liquidity < 0.5 * initial_liquidity:
+                if low_liquidity and high_deviation:
                     return "mean_reverting"
-                if regime_switch is not None and (t % max(1, int(steps/10)) == 0):
-                    return "regime_switching"
-                if steps // 3 < t < 2 * steps // 3:
+                if high_sentiment:
                     return "stochastic_volatility"
                 return "standard"
+
+
 
             model = choose_model(t, current_price, liquidity)
             drift_effect = (regime_params.get('drift', 0.05) +
