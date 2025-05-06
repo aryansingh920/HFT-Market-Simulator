@@ -70,11 +70,3 @@ class IntradayStockPriceSimulatorWithOrderBook(StockPriceSimulatorWithOrderBook)
             # pass other parameters...
             random_seed=random_seed
         )
-
-    # The rest of your core logic remains the same because we inherit it.
-    # You do not override the update logic, order book logic, or regime transitions.
-
-
-# -------------------------------------------------------
-# Example usage / main execution
-# -------------------------------------------------------
