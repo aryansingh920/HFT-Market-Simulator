@@ -50,17 +50,33 @@ def plot_price_with_regimes(sim_result):
         lambda x, _: pd.to_datetime(x, unit='s').strftime('%H:%M:%S')))
     plt.gca().xaxis.set_major_locator(plt.MaxNLocator(nbins=10))
 
-    plt.show()
+    # plt.show()
 
 
 if __name__ == "__main__":
-    config_used = configs_apple[0]
+    config_used = configs_nvidia
+    config_used = config_used[0]  # Use the first configuration for testing
     simulator = StockPriceSimulatorWithOrderBook(**config_used)
 
 
     # Run the simulation
     results = simulator.simulate()
     plot_price_with_regimes(results)
+
+    # make directory for simulation output
+    if not os.path.exists(f"simulation_output/{config_used['name']}"):
+        os.makedirs(f"simulation_output/{config_used['name']}")
+
+    # Save simulation results to CSV
+    save_simulation_steps_csv(
+        results, f"simulation_output/{config_used['name']}/simulation_steps.csv")
+    save_orderbook_snapshots_csv(
+        results, f"simulation_output/{config_used['name']}/order_book_snapshots.csv")
+
+    # Optionally save the configuration as JSON
+    save_config_as_json(
+        config_used, f"simulation_output/{config_used['name']}/config_used.json")
+
 
 
     # Extract values
@@ -143,4 +159,4 @@ if __name__ == "__main__":
         )
 
     )
-    fig.show()
+    # fig.show()

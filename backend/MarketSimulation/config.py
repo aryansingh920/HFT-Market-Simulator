@@ -220,18 +220,16 @@ configs_apple = [
         ],
 
         'garch_params': (0.002, 0.1, 0.85),
-        # Higher intensity and impact for meta-model
         'jump_params': (0.03, 0.04, 0.08),
         'sentiment_params': (0.25, 0.10),
         'market_maker_power': 0.10,
         'transaction_cost': 0.0002,
         'mean_reversion_speed': 0.08,
         'long_term_mean': 200,
-        'market_shock_prob': 0.015,  # Activates jump_diffusion randomly
+        'market_shock_prob': 0.015,
         'flash_crash_threshold': (-0.18, 1.2),
-        'random_seed': 2025,
+        'random_seed': 2026,  # Changed seed to 2026
 
-        # This triggers the meta-model logic in your simulator
         'meta_model_enabled': True,
 
         'special_events': {
