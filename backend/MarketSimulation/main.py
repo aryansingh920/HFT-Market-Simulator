@@ -50,11 +50,11 @@ def plot_price_with_regimes(sim_result):
         lambda x, _: pd.to_datetime(x, unit='s').strftime('%H:%M:%S')))
     plt.gca().xaxis.set_major_locator(plt.MaxNLocator(nbins=10))
 
-    # plt.show()
+    plt.show()
 
 
 if __name__ == "__main__":
-    config_used = configs_nvidia
+    config_used = configs_apple
     config_used = config_used[0]  # Use the first configuration for testing
     simulator = StockPriceSimulatorWithOrderBook(**config_used)
 
